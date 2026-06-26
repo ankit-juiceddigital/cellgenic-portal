@@ -5,7 +5,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import {
-  getAllProducts,
   getClientOrders,
   getMyClients,
   getAllClients,
@@ -85,10 +84,19 @@ export function useClientOrders(clientId: number) {
 
 
 // ─────────────────────────────────────────────
-// PRODUCTS
+// PRODUCTS  (fetched via server route to keep WC credentials off the client)
 // ─────────────────────────────────────────────
+async function fetchProducts() {
+  const res = await fetch('/api/products')
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error || 'Failed to load products.')
+  }
+  return res.json()
+}
+
 export function useProducts() {
-  return useFetch(getAllProducts, [])
+  return useFetch(fetchProducts, [])
 }
 
 
