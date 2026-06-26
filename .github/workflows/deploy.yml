@@ -1,0 +1,42 @@
+# File: .github/workflows/deploy.yml
+# Place this file at: .github/workflows/deploy.yml in your project root
+#
+# This runs automatically on every push to main branch.
+# It checks the build passes before Vercel deploys.
+
+name: Build Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_WP_URL: ${{ secrets.NEXT_PUBLIC_WP_URL }}
+          NEXT_PUBLIC_WC_URL: ${{ secrets.NEXT_PUBLIC_WC_URL }}
+          WC_CONSUMER_KEY: ${{ secrets.WC_CONSUMER_KEY }}
+          WC_CONSUMER_SECRET: ${{ secrets.WC_CONSUMER_SECRET }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
