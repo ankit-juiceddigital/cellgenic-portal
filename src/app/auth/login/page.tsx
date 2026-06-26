@@ -2,13 +2,13 @@
 
 // File: src/app/auth/login/page.tsx
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { loginWithWordPress } from '@/lib/auth'
 import { useAuth } from '@/lib/auth-context'
 import { Eye, EyeOff } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useAuth()
@@ -146,5 +146,19 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   )
 }
