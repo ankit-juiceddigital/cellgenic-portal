@@ -1,9 +1,9 @@
 import { Client, Order, Note, Rep, UnassignedProvider, CommissionEntry, User } from '@/types'
 
 export const MOCK_USERS: Record<string, User> = {
-  rep: { id: '1', name: 'Jamie Santos', initials: 'JS', role: 'rep', repCode: 'JSANTOS' },
-  manager: { id: '2', name: 'Rosa Martinez', initials: 'RM', role: 'manager' },
-  admin: { id: '3', name: 'Sarah Admin', initials: 'SA', role: 'admin' },
+  rep: { id: '1', name: 'Jamie Santos', initials: 'JS', role: 'sales_rep', repCode: 'JSANTOS' },
+  manager: { id: '2', name: 'Rosa Martinez', initials: 'RM', role: 'sales_manager' },
+  admin: { id: '3', name: 'Sarah Admin', initials: 'SA', role: 'administrator' },
 }
 
 export const CLIENTS: Client[] = [
