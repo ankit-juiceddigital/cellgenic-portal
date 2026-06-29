@@ -8,7 +8,7 @@ import { Copy, Mail, MessageCircle, QrCode, Check } from 'lucide-react'
 
 export default function ReferralPage() {
   const [copied, setCopied] = useState(false)
-  const referralUrl = 'cellgenic.com/become-a-provider/?rep=JSANTOS'
+  const referralUrl = 'cellgenic.com/register/?rep=JSANTOS'
 
   const handleCopy = () => {
     navigator.clipboard.writeText('https://' + referralUrl)
