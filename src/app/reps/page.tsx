@@ -1,6 +1,7 @@
 'use client'
 // File: src/app/reps/page.tsx
 
+import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useReps } from '@/hooks/useData'
 import { Topbar } from '@/components/layout/Topbar'
@@ -8,10 +9,12 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { TableSkeleton, ErrorState } from '@/components/ui/Skeleton'
+import { EditRepModal } from '@/components/EditRepModal'
 
 export default function RepsPage() {
   const { isAdmin } = useAuth()
   const { data: reps, loading, error, refetch } = useReps()
+  const [editingRepId, setEditingRepId] = useState<number | null>(null)
 
   const sorted = (reps || []).sort((a: any, b: any) => b.ordersMonth - a.ordersMonth)
 
@@ -46,7 +49,13 @@ export default function RepsPage() {
                       <td className="px-4 py-3 text-gray-600">{rep.clients}</td>
                       <td className="px-4 py-3 text-gray-600">{rep.ordersMonth || 0}</td>
                       <td className="px-4 py-3"><Badge variant="green">Active</Badge></td>
-                      {isAdmin && <td className="px-4 py-3"><Button size="sm">Edit</Button></td>}
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <Button size="sm" onClick={() => setEditingRepId(rep.id)}>
+                            Edit
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {sorted.length === 0 && (
@@ -58,6 +67,14 @@ export default function RepsPage() {
           </Card>
         )}
       </div>
+
+      {editingRepId !== null && (
+        <EditRepModal
+          repId={editingRepId}
+          onClose={() => setEditingRepId(null)}
+          onSaved={() => refetch()}
+        />
+      )}
     </>
   )
 }

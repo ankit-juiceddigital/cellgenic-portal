@@ -1,6 +1,5 @@
 // File: src/hooks/useData.ts
 // All data-fetching hooks for the dashboard.
-// Every page uses these instead of mock data.
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
@@ -10,10 +9,15 @@ import {
   getAllClients,
   getPendingProviders,
   getAllReps,
+  getSingleRep,
+  updateRep,
   placeOrderForClient,
   approveProvider,
   rejectProvider,
   assignClientToRep,
+  getMyCommissions,
+  approveCommission,
+  getMyReferralStats,
 } from '@/lib/woocommerce'
 import { getNotes, saveNote } from '@/lib/notes'
 import type { Note } from '@/types'
@@ -84,19 +88,14 @@ export function useClientOrders(clientId: number) {
 
 
 // ─────────────────────────────────────────────
-// PRODUCTS  (fetched via server route to keep WC credentials off the client)
+// PRODUCTS
 // ─────────────────────────────────────────────
-async function fetchProducts() {
-  const res = await fetch('/api/products')
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.error || 'Failed to load products.')
-  }
-  return res.json()
-}
-
 export function useProducts() {
-  return useFetch(fetchProducts, [])
+  return useFetch(getAllProductsWrapper, [])
+}
+async function getAllProductsWrapper() {
+  const { getAllProducts } = await import('@/lib/woocommerce')
+  return getAllProducts()
 }
 
 
@@ -123,9 +122,44 @@ export function useReps() {
   )
 }
 
+// Single rep — used to populate the Edit modal
+export function useSingleRep(repId: number | null) {
+  const { user } = useAuth()
+  return useFetch(
+    () => repId ? getSingleRep(user!.token, repId) : Promise.resolve(null),
+    [user?.token, repId]
+  )
+}
+
+// Update rep — used when saving the Edit modal
+export function useUpdateRep() {
+  const { user } = useAuth()
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async (
+    repId: number,
+    data: { name?: string; email?: string; rep_code?: string; phone?: string },
+    onSuccess: () => void
+  ) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await updateRep(user!.token, repId, data)
+      onSuccess()
+    } catch (err: any) {
+      setError(err.message || 'Failed to update rep.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return { save, saving, error }
+}
+
 
 // ─────────────────────────────────────────────
-// NOTES (stored in WordPress via custom endpoint)
+// NOTES
 // ─────────────────────────────────────────────
 export function useNotes(clientId: number) {
   const { user } = useAuth()
@@ -261,7 +295,7 @@ export function useLeaderboard() {
 
 
 // ─────────────────────────────────────────────
-// DASHBOARD STATS — derived from clients + orders
+// DASHBOARD STATS
 // ─────────────────────────────────────────────
 export function useDashboardStats() {
   const { data: clients, loading } = useClients()
@@ -273,4 +307,49 @@ export function useDashboardStats() {
   } : null
 
   return { stats, loading }
+}
+
+
+// ─────────────────────────────────────────────
+// MY COMMISSIONS (rep)
+// ─────────────────────────────────────────────
+export function useMyCommissions() {
+  const { user } = useAuth()
+  return useFetch(
+    () => getMyCommissions(user!.token),
+    [user?.token]
+  )
+}
+
+
+// ─────────────────────────────────────────────
+// APPROVE COMMISSION (manager/admin)
+// ─────────────────────────────────────────────
+export function useApproveCommission() {
+  const { user } = useAuth()
+  const [processing, setProcessing] = useState<number | null>(null)
+
+  const approve = async (repId: number, onSuccess: () => void) => {
+    setProcessing(repId)
+    try {
+      await approveCommission(user!.token, repId)
+      onSuccess()
+    } finally {
+      setProcessing(null)
+    }
+  }
+
+  return { approve, processing }
+}
+
+
+// ─────────────────────────────────────────────
+// MY REFERRAL STATS (rep)
+// ─────────────────────────────────────────────
+export function useMyReferralStats() {
+  const { user } = useAuth()
+  return useFetch(
+    () => getMyReferralStats(user!.token),
+    [user?.token]
+  )
 }
