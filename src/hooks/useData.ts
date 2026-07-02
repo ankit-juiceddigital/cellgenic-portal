@@ -90,12 +90,33 @@ export function useClientOrders(clientId: number) {
 // ─────────────────────────────────────────────
 // PRODUCTS
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// CLIENT-SIDE CACHE — prevents multiple components
+// from each triggering a separate /api/products call.
+// Shared across all hook instances for the lifetime of the page.
+// ─────────────────────────────────────────────
+let productsCache: any[] | null = null
+let productsCacheTime = 0
+const PRODUCTS_CACHE_MS = 5 * 60 * 1000 // 5 minutes
+
 export function useProducts() {
-  return useFetch(getAllProductsWrapper, [])
+  return useFetch(fetchProductsFromAPI, [])
 }
-async function getAllProductsWrapper() {
-  const { getAllProducts } = await import('@/lib/woocommerce')
-  return getAllProducts()
+
+async function fetchProductsFromAPI() {
+  // Return client-side cache if fresh
+  if (productsCache && Date.now() - productsCacheTime < PRODUCTS_CACHE_MS) {
+    return productsCache
+  }
+  const res = await fetch('/api/products')
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || `Products API error: ${res.status}`)
+  }
+  const data = await res.json()
+  productsCache = data
+  productsCacheTime = Date.now()
+  return data
 }
 
 
@@ -213,7 +234,14 @@ export function usePlaceOrder() {
     setSuccess(false)
     setError(null)
     try {
-      await placeOrderForClient(params)
+      // Call the internal server-side API route — keeps WC credentials off the browser
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to place order.')
       setSuccess(true)
     } catch (err: any) {
       setError(err.message || 'Failed to place order.')

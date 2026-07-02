@@ -147,9 +147,6 @@ export default function ApprovalsPage() {
                       >
                         <XCircle size={13} /> Reject
                       </Button>
-                      <Button size="sm" className="ml-auto">
-                        <Mail size={13} /> Request more info
-                      </Button>
                     </div>
 
                   </div>
