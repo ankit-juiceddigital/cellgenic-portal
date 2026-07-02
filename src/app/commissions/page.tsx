@@ -315,7 +315,7 @@ export default function CommissionsPage() {
                         {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
                       </td>
                       <td className="px-4 py-3 text-gray-600">{rep.revenue}</td>
-                      <td className="px-4 py-3 text-gray-600">10%</td>
+                      <td className="px-4 py-3 text-gray-600">{rep.commission_rate ? `${rep.commission_rate}%` : '10%'}</td>
                       <td className="px-4 py-3 font-semibold text-brand">{rep.commission}</td>
                       <td className="px-4 py-3">
                         {approved.includes(rep.id)

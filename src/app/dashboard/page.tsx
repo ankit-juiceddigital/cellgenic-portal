@@ -3,7 +3,7 @@
 // File: src/app/dashboard/page.tsx
 
 import { useAuth } from '@/lib/auth-context'
-import { useClients, useReps, usePendingProviders } from '@/hooks/useData'
+import { useClients, useReps, usePendingProviders, useLeaderboard } from '@/hooks/useData'
 import { Topbar } from '@/components/layout/Topbar'
 import { MetricCard, Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -20,6 +20,9 @@ export default function DashboardPage() {
 
   const atRiskClients = clients?.filter((c: any) => c.at_risk) || []
   const recentOrders = clients?.flatMap((c: any) => c.recent_orders || []).slice(0, 5) || []
+  const { leaderboard } = useLeaderboard()
+  const myRankData = leaderboard?.find((r: any) => r.rep_code === user?.repCode)
+  
 
   // ── REP VIEW ──
   if (isRep) {
@@ -44,7 +47,12 @@ export default function DashboardPage() {
             <MetricCard label="My clients" value={String(clients?.length || 0)} delta="+1 this month" />
             <MetricCard label="Orders this month" value={String(clients?.reduce((s: number, c: any) => s + (c.orders_this_month || 0), 0) || 0)} delta="vs last month" />
             <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta={atRiskClients.length > 0 ? '30+ days no order' : 'All active'} />
-            <MetricCard label="My rank" value={`🥈 2nd`} delta="View leaderboard →" deltaType="neutral" />
+            <MetricCard
+              label="My rank"
+              value={myRankData ? `${myRankData.rank === 1 ? '🥇' : myRankData.rank === 2 ? '🥈' : '🥉'} ${myRankData.rank === 1 ? '1st' : myRankData.rank === 2 ? '2nd' : `${myRankData.rank}th`}` : '—'}
+              delta="View leaderboard →"
+              deltaType="neutral"
+            />
           </div>
 
           {atRiskClients.length > 0 && (
