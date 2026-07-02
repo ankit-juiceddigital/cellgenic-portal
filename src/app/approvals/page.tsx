@@ -82,6 +82,8 @@ export default function ApprovalsPage() {
                       <Field label="Phone" value={p.phone} />
                       <Field label="Provider role" value={p.role} />
                       <Field label="Years of experience" value={p.years} />
+                      <Field label="Country" value={p.country} />
+                      <Field label="City" value={p.city} />
                     </div>
 
                     {/* Secondary fields — toggle */}
@@ -146,6 +148,9 @@ export default function ApprovalsPage() {
                         onClick={() => reject(p.id, () => setActioned(prev => ({ ...prev, [p.id]: 'rejected' })))}
                       >
                         <XCircle size={13} /> Reject
+                      </Button>
+                      <Button size="sm" className="ml-auto">
+                        <Mail size={13} /> Request more info
                       </Button>
                     </div>
 
