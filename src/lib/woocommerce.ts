@@ -225,3 +225,6 @@ export async function getMyReferralStats(token: string) {
 // LEADERBOARD — accessible by all roles (rep, manager, admin)
 // Uses a separate endpoint that doesn't expose revenue/commission data
 // ──────────────────────────────────
+export async function getLeaderboard(token: string) {
+  return cgFetch('/leaderboard', token)
+}
