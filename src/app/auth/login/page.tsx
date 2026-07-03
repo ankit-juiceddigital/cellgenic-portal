@@ -6,6 +6,7 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { loginWithWordPress } from '@/lib/auth'
 import { useAuth } from '@/lib/auth-context'
+import Image from 'next/image'
 import { Eye, EyeOff } from 'lucide-react'
 
 function LoginForm() {
@@ -23,14 +24,9 @@ function LoginForm() {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
       const user = await loginWithWordPress(username, password)
-
-      // Save to context + cookies
       login(user)
-
-      // Redirect to original destination or role-based default
       const redirect = searchParams.get('redirect')
       if (redirect && redirect !== '/auth/login') {
         router.push(redirect)
@@ -45,44 +41,69 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <div
+      className="min-h-screen flex items-center justify-center px-4 py-8"
+      style={{ background: '#f5f5f3', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+    >
       <div className="w-full max-w-sm">
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-brand rounded-xl mb-4">
-            <span className="text-white font-bold text-lg">C</span>
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900">CellGenic</h1>
-          <p className="text-sm text-gray-400 mt-1">Provider Sales Portal</p>
+          <Image
+            src="https://cellgenic.com/wp-content/uploads/2026/05/cellgenic_official_logo_black.png"
+            alt="CellGenic"
+            width={140}
+            height={36}
+            style={{ objectFit: 'contain', display: 'inline-block' }}
+            unoptimized
+          />
         </div>
 
-        {/* Login card */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-900 mb-5">
-            Sign in to your account
+        {/* Card */}
+        <div
+          className="bg-white p-8"
+          style={{ borderRadius: 20, border: '0.5px solid #e8e8e4' }}
+        >
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0a0a0a', letterSpacing: '-0.02em', marginBottom: 4, textAlign: 'center' }}>
+            Sign in
           </h2>
+          <p style={{ fontSize: 13, color: '#888', marginBottom: 28, lineHeight: 1.5, textAlign: 'center' }}>
+            Provider Sales Portal — team access only.
+          </p>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-3">
+
             {/* Username */}
             <div>
-              <label className="text-xs text-gray-400 mb-1.5 block">
-                Username or Email
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#555', marginBottom: 5 }}>
+                Username or email
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="your.name"
+                placeholder="your.name@stemcellsgroup.com"
                 required
                 autoComplete="username"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus:outline-none focus:border-brand transition-colors"
+                className="w-full focus:outline-none"
+                style={{
+                  padding: '11px 14px',
+                  border: '1px solid #e8e8e4',
+                  borderRadius: 10,
+                  fontSize: 14,
+                  color: '#0a0a0a',
+                  background: '#ffffff',
+                  fontFamily: 'inherit',
+                  transition: 'border-color 0.15s, background 0.15s',
+                }}
+                onFocus={e => { e.target.style.borderColor = '#0F6E56'; e.target.style.background = '#fff' }}
+                onBlur={e => { e.target.style.borderColor = '#e8e8e4'; e.target.style.background = '#ffffff' }}
               />
             </div>
 
             {/* Password */}
             <div>
-              <label className="text-xs text-gray-400 mb-1.5 block">
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#555', marginBottom: 5 }}>
                 Password
               </label>
               <div className="relative">
@@ -90,24 +111,39 @@ function LoginForm() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="••••••••••••"
                   required
                   autoComplete="current-password"
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2.5 pr-10 bg-white focus:outline-none focus:border-brand transition-colors"
+                  className="w-full focus:outline-none"
+                  style={{
+                    padding: '11px 42px 11px 14px',
+                    border: '1px solid #e8e8e4',
+                    borderRadius: 10,
+                    fontSize: 14,
+                    color: '#0a0a0a',
+                    background: '#ffffff',
+                    fontFamily: 'inherit',
+                    transition: 'border-color 0.15s, background 0.15s',
+                  }}
+                  onFocus={e => { e.target.style.borderColor = '#0F6E56'; e.target.style.background = '#fff' }}
+                  onBlur={e => { e.target.style.borderColor = '#e8e8e4'; e.target.style.background = '#ffffff' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: '#bbb', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#555')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#bbb')}
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
-            {/* Error message */}
+            {/* Error */}
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 text-xs text-red-600">
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#dc2626' }}>
                 {error}
               </div>
             )}
@@ -115,35 +151,75 @@ function LoginForm() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || !username || !password}
-              className="w-full bg-brand text-white text-sm font-medium py-2.5 rounded-lg hover:bg-brand-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2"
+              style={{
+                marginTop: 4,
+                background: '#0a0a0a',
+                backgroundColor: '#0a0a0a',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '13px',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                opacity: 1,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#222222')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#0a0a0a')}
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
+                <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Signing in...
-                </span>
+                </>
               ) : (
-                'Sign in'
+                <>Sign in <span style={{ fontSize: 16 }}>→</span></>
               )}
             </button>
           </form>
 
-          <p className="text-xs text-gray-400 text-center mt-4">
-            Access restricted to CellGenic sales team members.
-          </p>
-        </div>
+          {/* Divider */}
+          <div className="flex items-center gap-2" style={{ margin: '18px 0' }}>
+            <div style={{ flex: 1, height: '0.5px', background: '#e8e8e4' }} />
+            <span style={{ fontSize: 11, color: '#bbb', whiteSpace: 'nowrap' }}>forgot your password?</span>
+            <div style={{ flex: 1, height: '0.5px', background: '#e8e8e4' }} />
+          </div>
 
-        <p className="text-xs text-gray-400 text-center mt-4">
-          Forgot your password?{' '}
+          {/* Reset password — always visible */}
           <a
             href="https://cellgenic.com/wp-login.php?action=lostpassword"
             target="_blank"
-            className="text-brand hover:underline"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 transition-all"
+            style={{
+              background: '#fff',
+              color: '#555',
+              border: '1px solid #e8e8e4',
+              borderRadius: 10,
+              padding: '11px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              textDecoration: 'none',
+              fontFamily: 'inherit',
+              display: 'flex',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#0a0a0a'; e.currentTarget.style.color = '#0a0a0a' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8e8e4'; e.currentTarget.style.color = '#555' }}
           >
-            Reset via WordPress
+            <span style={{ width: 18, height: 18, background: '#0a0a0a', borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#fff', fontFamily: 'monospace', flexShrink: 0 }}>W</span>
+            Reset password via WordPress
           </a>
-        </p>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-center gap-1.5 mt-5">
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0F6E56', flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: '#bbb' }}>Access restricted to CellGenic team members</span>
+        </div>
+
       </div>
     </div>
   )
@@ -153,8 +229,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+        <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f5f3' }}>
+          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0F6E56', borderTopColor: 'transparent' }} />
         </div>
       }
     >
