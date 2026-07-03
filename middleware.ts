@@ -1,61 +1,67 @@
-// File: middleware.ts (place in root of Next.js project, same level as package.json)
-//
-// This runs on every request BEFORE the page loads.
-// It checks if the user has a valid session cookie.
-// If not, it redirects to login immediately — no flash of protected content.
+// File: src/middleware.ts
+// Protects all dashboard routes based on user role stored in cookies.
+// If a Sales Rep tries to manually visit /approvals — they get redirected to /dashboard.
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Routes that don't require authentication
-const PUBLIC_ROUTES = [
-  '/auth/login',
-  '/auth/forgot-password',
-]
-
-// Routes that require specific roles
-const ROLE_RESTRICTED: Record<string, string[]> = {
-  '/unassigned':  ['administrator'],
-  '/approvals':   ['administrator', 'sales_manager'],
-  '/settings':    ['administrator'],
-  '/reps':        ['administrator', 'sales_manager'],
-  '/referral':    ['sales_rep'],
-  '/order':       ['sales_rep'],
-  '/calculator':  ['sales_rep'],
+// ─────────────────────────────────────────────
+// ROUTES EACH ROLE IS ALLOWED TO ACCESS
+// Must match the ALLOWED_ROUTES in Sidebar.tsx
+// ─────────────────────────────────────────────
+const ALLOWED_ROUTES: Record<string, string[]> = {
+  sales_rep: [
+    '/dashboard', '/clients', '/order', '/calculator',
+    '/leaderboard', '/commissions', '/referral',
+  ],
+  sales_manager: [
+    '/dashboard', '/clients', '/order', '/reps',
+    '/leaderboard', '/commissions',
+  ],
+  administrator: [
+    '/dashboard', '/clients', '/reps', '/unassigned',
+    '/approvals', '/commissions', '/settings',
+  ],
 }
+
+// Routes that don't need auth at all
+const PUBLIC_ROUTES = ['/auth/login', '/auth/register']
+
+// Routes that need auth but not a specific role (any logged-in user)
+const SHARED_ROUTES = ['/calculator', '/leaderboard', '/order', '/clients']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public routes through
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
-    return NextResponse.next()
-  }
-
-  // Allow static files and API routes
+  // Skip public routes and Next.js internals
   if (
+    PUBLIC_ROUTES.some(r => pathname.startsWith(r)) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.includes('.')
+    pathname === '/favicon.ico'
   ) {
     return NextResponse.next()
   }
 
-  // Check for auth token in cookies
+  // Read role from cookie (set during login in auth.ts)
+  const role = request.cookies.get('cellgenic_role')?.value
   const token = request.cookies.get('cellgenic_token')?.value
-  const roleStr = request.cookies.get('cellgenic_role')?.value
 
-  // No token — redirect to login
-  if (!token) {
-    const loginUrl = new URL('/auth/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
+  // Not logged in — redirect to login
+  if (!token || !role) {
+    return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
-  // Check role restrictions
-  const restrictedRoles = ROLE_RESTRICTED[pathname]
-  if (restrictedRoles && roleStr && !restrictedRoles.includes(roleStr)) {
-    // User doesn't have permission for this page — redirect to dashboard
+  // Check if this role is allowed to access this route
+  const allowedForRole = ALLOWED_ROUTES[role] || []
+
+  // Check if the current path starts with any allowed route
+  const isAllowed = allowedForRole.some(
+    allowed => pathname === allowed || pathname.startsWith(allowed + '/')
+  )
+
+  // If not allowed — redirect to dashboard
+  if (!isAllowed) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
@@ -63,7 +69,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Run middleware on all routes except static files and api routes
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
   ],
 }

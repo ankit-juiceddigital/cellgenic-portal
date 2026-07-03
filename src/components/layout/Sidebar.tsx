@@ -1,8 +1,6 @@
 'use client'
 
 // File: src/components/layout/Sidebar.tsx
-// This replaces the prototype sidebar — no more role switcher toggle.
-// Shows real user from auth context, real role-based nav.
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -15,31 +13,62 @@ import {
   Trophy, ClipboardCheck, LogOut,
 } from 'lucide-react'
 
+// ─────────────────────────────────────────────
+// ROLE-BASED NAV CONFIG
+// Each role ONLY sees the items defined here.
+// Adding an item to the wrong role = that role can access it.
+// ─────────────────────────────────────────────
 const NAV_CONFIG = {
+
+  // Sales Rep — can only see their own clients, orders, commissions, referral link
   sales_rep: [
-    { icon: LayoutDashboard, label: 'Dashboard',         href: '/dashboard' },
-    { icon: Users,           label: 'My Clients',        href: '/clients' },
+    { icon: LayoutDashboard, label: 'Dashboard',          href: '/dashboard' },
+    { icon: Users,           label: 'My Clients',         href: '/clients' },
+    { icon: ShoppingCart,    label: 'Place Order',         href: '/order' },
+    { icon: Calculator,      label: 'Peptide Calculator',  href: '/calculator' },
+    { icon: Trophy,          label: 'Leaderboard',         href: '/leaderboard' },
+    { icon: Coins,           label: 'My Commissions',      href: '/commissions' },
+    { icon: Link2,           label: 'My Referral Link',    href: '/referral' },
+  ],
+
+  // Sales Manager — sees all clients and rep performance, but NOT admin controls
+  sales_manager: [
+    { icon: LayoutDashboard, label: 'Overview',           href: '/dashboard' },
+    { icon: Users,           label: 'All Clients',        href: '/clients' },
     { icon: ShoppingCart,    label: 'Place Order',        href: '/order' },
-    { icon: Calculator,      label: 'Peptide Calculator', href: '/calculator' },
+    { icon: BarChart3,       label: 'Rep Performance',    href: '/reps' },
     { icon: Trophy,          label: 'Leaderboard',        href: '/leaderboard' },
-    { icon: Coins,           label: 'My Orders',          href: '/commissions' },
-    { icon: Link2,           label: 'My Referral Link',   href: '/referral' },
+    { icon: Coins,           label: 'Commissions',        href: '/commissions' },
+  ],
+
+  // Administrator — full access including approvals, unassigned, settings
+  administrator: [
+    { icon: LayoutDashboard, label: 'Platform Overview',  href: '/dashboard' },
+    { icon: Users,           label: 'All Clients',        href: '/clients' },
+    { icon: UserCheck,       label: 'Sales Reps',         href: '/reps' },
+    { icon: UserX,           label: 'Unassigned',         href: '/unassigned' },
+    { icon: ClipboardCheck,  label: 'Provider Approvals', href: '/approvals' },
+    { icon: Coins,           label: 'Commissions',        href: '/commissions' },
+    { icon: Settings,        label: 'Settings',           href: '/settings' },
+  ],
+}
+
+// ─────────────────────────────────────────────
+// ROUTES EACH ROLE IS ALLOWED TO ACCESS
+// Used to redirect unauthorized users away from pages they don't own.
+// ─────────────────────────────────────────────
+export const ALLOWED_ROUTES: Record<string, string[]> = {
+  sales_rep: [
+    '/dashboard', '/clients', '/order', '/calculator',
+    '/leaderboard', '/commissions', '/referral',
   ],
   sales_manager: [
-    { icon: LayoutDashboard, label: 'Overview',          href: '/dashboard' },
-    { icon: Users,           label: 'All Clients',       href: '/clients' },
-    { icon: BarChart3,       label: 'Rep Performance',   href: '/reps' },
-    { icon: Trophy,          label: 'Leaderboard',       href: '/leaderboard' },
-    { icon: Coins,           label: 'Commissions',       href: '/commissions' },
+    '/dashboard', '/clients', '/order', '/reps',
+    '/leaderboard', '/commissions',
   ],
   administrator: [
-    { icon: LayoutDashboard, label: 'Platform Overview', href: '/dashboard' },
-    { icon: Users,           label: 'All Clients',       href: '/clients' },
-    { icon: UserCheck,       label: 'Sales Reps',        href: '/reps' },
-    { icon: UserX,           label: 'Unassigned',        href: '/unassigned' },
-    { icon: ClipboardCheck,  label: 'Provider Approvals',href: '/approvals' },
-    { icon: Coins,           label: 'Commissions',       href: '/commissions' },
-    { icon: Settings,        label: 'Settings',          href: '/settings' },
+    '/dashboard', '/clients', '/reps', '/unassigned',
+    '/approvals', '/commissions', '/settings',
   ],
 }
 
@@ -50,7 +79,7 @@ export function Sidebar() {
 
   if (!user) return null
 
-  const navItems = NAV_CONFIG[user.role] || []
+  const navItems = NAV_CONFIG[user.role as keyof typeof NAV_CONFIG] || []
 
   const handleLogout = () => {
     logout()
@@ -66,7 +95,7 @@ export function Sidebar() {
         <p className="text-xs text-gray-400 mt-0.5">Provider Sales Portal</p>
       </div>
 
-      {/* Nav items */}
+      {/* Nav items — only shows items for this user's role */}
       <nav className="flex-1 py-3">
         {navItems.map((item) => {
           const Icon = item.icon

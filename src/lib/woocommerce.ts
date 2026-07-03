@@ -220,3 +220,8 @@ export async function approveCommission(token: string, repId: number) {
 export async function getMyReferralStats(token: string) {
   return cgFetch('/my-referral-stats', token)
 }
+
+// ─────────────────────────────────────────────
+// LEADERBOARD — accessible by all roles (rep, manager, admin)
+// Uses a separate endpoint that doesn't expose revenue/commission data
+// ──────────────────────────────────

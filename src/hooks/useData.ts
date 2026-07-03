@@ -9,6 +9,7 @@ import {
   getAllClients,
   getPendingProviders,
   getAllReps,
+  getLeaderboard,
   getSingleRep,
   updateRep,
   placeOrderForClient,
@@ -310,15 +311,14 @@ export function useAssignClient() {
 // LEADERBOARD — derived from reps data
 // ─────────────────────────────────────────────
 export function useLeaderboard() {
-  const { data: reps, loading, error } = useReps()
-
-  const leaderboard = reps
-    ? [...reps]
-        .sort((a, b) => b.ordersMonth - a.ordersMonth)
-        .map((rep, index) => ({ ...rep, rank: index + 1 }))
-    : null
-
-  return { leaderboard, loading, error }
+  const { user } = useAuth()
+  // Uses dedicated /leaderboard endpoint — accessible by ALL roles (rep, manager, admin)
+  // Does NOT call /reps which is manager/admin only and would 403 for sales reps
+  const { data, loading, error } = useFetch(
+    () => getLeaderboard(user!.token),
+    [user?.token]
+  )
+  return { leaderboard: data, loading, error }
 }
 
 
