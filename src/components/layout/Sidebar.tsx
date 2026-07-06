@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { getRoleLabel } from '@/lib/auth'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
 import {
   LayoutDashboard, Users, ShoppingCart, Coins, Link2,
   BarChart3, UserCheck, UserX, Settings, Calculator,
@@ -91,8 +92,14 @@ export function Sidebar() {
 
       {/* Logo */}
       <div className="px-5 py-5 border-b border-gray-100">
-        <p className="text-sm font-semibold text-gray-900 tracking-wide">CellGenic</p>
-        <p className="text-xs text-gray-400 mt-0.5">Provider Sales Portal</p>
+        <Image
+          src="https://cellgenic.com/wp-content/uploads/2026/05/cellgenic_official_logo_black.png"
+          alt="CellGenic"
+          width={140}
+          height={36}
+          style={{ objectFit: 'contain', display: 'inline-block' }}
+          unoptimized
+        />
       </div>
 
       {/* Nav items — only shows items for this user's role */}

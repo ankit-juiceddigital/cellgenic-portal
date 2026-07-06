@@ -63,6 +63,7 @@ export default function ClientsPage() {
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Last order</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Days since</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Total orders</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Roles</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Status</th>
                     <th className="px-4 py-2.5"></th>
                   </tr>
@@ -95,6 +96,7 @@ export default function ClientsPage() {
                         ) : <span className="text-gray-400 text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3 text-gray-600">{client.total_orders}</td>
+                      <td className="px-4 py-3 text-gray-600">{client.role}</td>
                       <td className="px-4 py-3">
                         <Badge variant={client.at_risk ? 'amber' : 'teal'}>
                           {client.at_risk ? 'At risk' : 'Active'}
