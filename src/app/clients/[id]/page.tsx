@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { useClientOrders, useNotes, usePlaceOrder } from '@/hooks/useData'
+import { useClientOrders, useNotes, usePlaceOrder, useCustomer, useConsentStatus } from '@/hooks/useData'
 import { useProducts } from '@/hooks/useData'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card, MetricCard } from '@/components/ui/Card'
@@ -16,6 +16,93 @@ import { noteIconClass, noteTagClass, noteTagLabel } from '@/lib/utils'
 import { ArrowLeft, Phone, Mail, FileText, Clock, AlertTriangle, Plus, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import type { Note } from '@/types'
+
+// ─────────────────────────────────────────────
+// DocuSign consent buttons (Part E of the build guide)
+// Only shown for US / Mexico clients. Sends the appropriate consent
+// template and reflects persisted sent/signed status from WordPress.
+// ─────────────────────────────────────────────
+const ELIGIBLE_COUNTRIES = ['US', 'MX', 'United States', 'Mexico']
+
+function ConsentButtons({
+  clientId,
+  customer,
+}: {
+  clientId: number
+  customer: { name: string; email: string; country: string } | null
+}) {
+  const { data: consentStatus, refetch: refetchConsent } = useConsentStatus(clientId) as {
+    data: { research?: string | null; cosmetic?: string | null } | null
+    refetch: () => void
+  }
+
+  const [sending, setSending] = useState<string | null>(null)
+  const [sentThisSession, setSentThisSession] = useState<Record<string, boolean>>({})
+  const [error, setError] = useState<string | null>(null)
+
+  if (!customer) return null
+  if (!ELIGIBLE_COUNTRIES.includes(customer.country)) return null
+
+  const statusFor = (formType: 'research' | 'cosmetic') =>
+    consentStatus?.[formType] || (sentThisSession[formType] ? 'sent' : null)
+
+  const sendConsent = async (formType: 'research' | 'cosmetic') => {
+    setSending(formType)
+    setError(null)
+    try {
+      const res = await fetch('/api/docusign/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          clientName: customer.name,
+          clientEmail: customer.email,
+          formType,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setSentThisSession(prev => ({ ...prev, [formType]: true }))
+      refetchConsent()
+    } catch (err: any) {
+      setError(err.message || 'Failed to send consent form.')
+    } finally {
+      setSending(null)
+    }
+  }
+
+  const renderButton = (formType: 'research' | 'cosmetic', label: string) => {
+    const status = statusFor(formType)
+    const isSigned = status === 'signed'
+    const isSent = status === 'sent'
+    return (
+      <button
+        onClick={() => sendConsent(formType)}
+        disabled={!!sending || isSigned}
+        className="w-full flex justify-between px-4 py-2.5 rounded-lg border text-sm hover:bg-gray-50 disabled:opacity-60"
+      >
+        <span>
+          {sending === formType
+            ? 'Sending...'
+            : isSigned
+            ? `✅ ${label} Signed`
+            : isSent
+            ? `✉️ ${label} Sent — awaiting signature`
+            : `Send ${label}`}
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="border border-gray-100 rounded-xl p-4 space-y-2">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Consent Forms</p>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      {renderButton('research', 'Research Use Only Consent')}
+      {renderButton('cosmetic', 'Cosmetic Use Consent')}
+    </div>
+  )
+}
 
 const noteIcon = (type: string) => {
   if (type === 'call') return <Phone size={14} />
@@ -29,6 +116,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
   const clientId = parseInt(params.id)
 
   const { data: clientOrders, loading: ordersLoading } = useClientOrders(clientId)
+  const { data: customer } = useCustomer(clientId)
   const { notes, loading: notesLoading, addNote } = useNotes(clientId)
   const { data: products } = useProducts()
   const { placeOrder, loading: orderLoading, success: orderSuccess, error: orderError } = usePlaceOrder()
@@ -88,11 +176,22 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
           </button>
         </Link>
 
+        {customer && (
+          <div className="flex items-center gap-4">
+            <div>
+              <p className="text-lg font-semibold text-gray-900">{customer.name}</p>
+              <p className="text-sm text-gray-400">{customer.email}</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-3 max-w-lg">
           <MetricCard label="Total orders" value={String(clientOrders?.length || 0)} />
           <MetricCard label="Last order" value={clientOrders?.[0]?.date || 'Never'} />
           <MetricCard label="Client ID" value={`#${clientId}`} />
         </div>
+
+        <ConsentButtons clientId={clientId} customer={customer} />
 
         <Card>
           <Tabs tabs={tabs}>

@@ -89,6 +89,25 @@ export function useClientOrders(clientId: number) {
 
 
 // ─────────────────────────────────────────────
+// SINGLE CUSTOMER — name/email/country, used by the DocuSign
+// consent buttons on the client detail page.
+// ─────────────────────────────────────────────
+export function useCustomer(clientId: number) {
+  return useFetch(
+    async () => {
+      const res = await fetch(`/api/customers/${clientId}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Customer API error: ${res.status}`)
+      }
+      return res.json()
+    },
+    [clientId]
+  )
+}
+
+
+// ─────────────────────────────────────────────
 // PRODUCTS
 // ─────────────────────────────────────────────
 // ─────────────────────────────────────────────
@@ -177,6 +196,21 @@ export function useUpdateRep() {
   }
 
   return { save, saving, error }
+}
+
+
+// ─────────────────────────────────────────────
+// DOCUSIGN CONSENT STATUS — persisted signed/sent state per client
+// ─────────────────────────────────────────────
+export function useConsentStatus(clientId: number) {
+  return useFetch(
+    async () => {
+      const res = await fetch(`/api/docusign/status/${clientId}`)
+      if (!res.ok) return { research: null, cosmetic: null }
+      return res.json()
+    },
+    [clientId]
+  )
 }
 
 

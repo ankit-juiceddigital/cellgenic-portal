@@ -127,6 +127,22 @@ export async function placeOrderForClient(params: {
 
 
 // ─────────────────────────────────────────────
+// SINGLE CUSTOMER (WooCommerce) — name/email/country/phone
+// Used by the DocuSign consent buttons on the client detail page.
+// ─────────────────────────────────────────────
+export async function getCustomer(customerId: number) {
+  const c = await wcFetch(`/customers/${customerId}`)
+  return {
+    id: c.id,
+    name: `${c.first_name} ${c.last_name}`.trim() || c.username,
+    email: c.email,
+    phone: c.billing?.phone || '',
+    country: c.billing?.country || c.shipping?.country || '',
+  }
+}
+
+
+// ─────────────────────────────────────────────
 // CLIENTS (via custom CellGenic endpoints)
 // ─────────────────────────────────────────────
 export async function getMyClients(token: string) {
