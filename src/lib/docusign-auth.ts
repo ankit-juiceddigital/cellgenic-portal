@@ -1,5 +1,4 @@
 // src/lib/docusign-auth.ts
-//
 // Generates a DocuSign access token via JWT Grant and caches it in memory
 // until shortly before it expires. Import getDocuSignAccessToken() wherever
 // you currently use process.env.DOCUSIGN_ACCESS_TOKEN.
