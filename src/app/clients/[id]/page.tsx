@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { useClientOrders, useNotes, usePlaceOrder, useCustomer, useConsentStatus } from '@/hooks/useData'
+import { useClientOrders, useNotes, usePlaceOrder, useCustomer, useConsentStatus, useClients } from '@/hooks/useData'
 import { useProducts } from '@/hooks/useData'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card, MetricCard } from '@/components/ui/Card'
@@ -19,17 +19,23 @@ import type { Note } from '@/types'
 
 // ─────────────────────────────────────────────
 // DocuSign consent buttons (Part E of the build guide)
-// Only shown for US / Mexico clients. Sends the appropriate consent
-// template and reflects persisted sent/signed status from WordPress.
+// Shown for any ACTIVE client (independent of order history - a client
+// can be active with zero orders so far), restricted to US / Mexico.
+// Sends the appropriate consent template and reflects persisted
+// sent/signed status from WordPress.
 // ─────────────────────────────────────────────
 const ELIGIBLE_COUNTRIES = ['US', 'MX', 'United States', 'Mexico']
 
 function ConsentButtons({
   clientId,
   customer,
+  isActive,
+  country,
 }: {
   clientId: number
   customer: { name: string; email: string; country: string } | null
+  isActive: boolean
+  country: string | null
 }) {
   const { data: consentStatus, refetch: refetchConsent } = useConsentStatus(clientId) as {
     data: { research?: string | null; cosmetic?: string | null } | null
@@ -40,13 +46,26 @@ function ConsentButtons({
   const [sentThisSession, setSentThisSession] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
 
-  if (!customer) return null
-  if (!ELIGIBLE_COUNTRIES.includes(customer.country)) return null
+  // Gate on the client's active status, NOT on whether the WooCommerce
+  // customer/order record has loaded - a client with no orders yet can
+  // still be active and should still be able to send consent forms.
+  if (!isActive) return null
+
+  // Country eligibility uses the client's registered country (from the
+  // clients list), not the WooCommerce billing/shipping address. A client
+  // with no orders yet often has no WC billing address, so that value
+  // resolves to '' once the customer fetch completes - which previously
+  // caused the section to flash and then hide itself a moment later.
+  if (country && !ELIGIBLE_COUNTRIES.includes(country)) return null
 
   const statusFor = (formType: 'research' | 'cosmetic') =>
     consentStatus?.[formType] || (sentThisSession[formType] ? 'sent' : null)
 
   const sendConsent = async (formType: 'research' | 'cosmetic') => {
+    if (!customer?.email) {
+      setError('This client has no email on file yet, so the form cannot be sent.')
+      return
+    }
     setSending(formType)
     setError(null)
     try {
@@ -117,7 +136,16 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
 
   const { data: clientOrders, loading: ordersLoading } = useClientOrders(clientId)
   const { data: customer } = useCustomer(clientId)
+  const { data: clients } = useClients()
   const { notes, loading: notesLoading, addNote } = useNotes(clientId)
+
+  // Active/at-risk status comes from the clients list, independent of
+  // order history, so consent forms stay available for active clients
+  // even before they have placed any orders. Default to true while the
+  // clients list is still loading so the section is not hidden by default.
+  const clientRecord = clients?.find((c: any) => c.id === clientId)
+  const isActive = clientRecord ? !clientRecord.at_risk : true
+  const country = clientRecord?.country || customer?.country || null
   const { data: products } = useProducts()
   const { placeOrder, loading: orderLoading, success: orderSuccess, error: orderError } = usePlaceOrder()
 
@@ -191,7 +219,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
           <MetricCard label="Client ID" value={`#${clientId}`} />
         </div>
 
-        <ConsentButtons clientId={clientId} customer={customer} />
+        <ConsentButtons clientId={clientId} customer={customer} isActive={isActive} country={country} />
 
         <Card>
           <Tabs tabs={tabs}>
