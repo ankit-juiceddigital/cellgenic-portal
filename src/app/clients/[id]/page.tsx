@@ -37,6 +37,7 @@ function ConsentButtons({
   isActive: boolean
   country: string | null
 }) {
+  const { isAdmin } = useAuth()
   const { data: consentStatus, refetch: refetchConsent } = useConsentStatus(clientId) as {
     data: { research?: string | null; cosmetic?: string | null } | null
     refetch: () => void
@@ -45,6 +46,9 @@ function ConsentButtons({
   const [sending, setSending] = useState<string | null>(null)
   const [sentThisSession, setSentThisSession] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
+
+  // Admin-only — sales reps and managers should not see or trigger these.
+  if (!isAdmin) return null
 
   // Gate on the client's active status, NOT on whether the WooCommerce
   // customer/order record has loaded - a client with no orders yet can
@@ -94,27 +98,35 @@ function ConsentButtons({
     const status = statusFor(formType)
     const isSigned = status === 'signed'
     const isSent = status === 'sent'
+    const isSending = sending === formType
+
     return (
-      <button
-        onClick={() => sendConsent(formType)}
-        disabled={!!sending || isSigned}
-        className="w-full flex justify-between px-4 py-2.5 rounded-lg border text-sm hover:bg-gray-50 disabled:opacity-60"
-      >
-        <span>
-          {sending === formType
-            ? 'Sending...'
-            : isSigned
+      <div className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm">
+        <span className="text-gray-700">
+          {isSigned
             ? `✅ ${label} Signed`
             : isSent
-            ? `✉️ ${label} Sent — awaiting signature`
-            : `Send ${label}`}
+            ? `✉️ ${label} — awaiting signature`
+            : label}
         </span>
-      </button>
+
+        {isSigned ? (
+          <span className="text-xs font-medium text-green-600 px-3 py-1.5">Signed</span>
+        ) : (
+          <button
+            onClick={() => sendConsent(formType)}
+            disabled={isSending}
+            className="px-4 py-1.5 rounded-lg bg-black text-white text-sm font-medium hover:bg-gray-700 active:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSending ? 'Sending...' : isSent ? 'Resend' : 'Send'}
+          </button>
+        )}
+      </div>
     )
   }
 
   return (
-    <div className="border border-gray-100 rounded-xl p-4 space-y-2">
+    <div className="border border-gray-100 rounded-xl p-4 space-y-2 w-full md:w-1/2">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Consent Forms</p>
       {error && <p className="text-xs text-red-500">{error}</p>}
       {renderButton('research', 'Research Use Only Consent')}
