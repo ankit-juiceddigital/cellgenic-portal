@@ -109,11 +109,14 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       <aside
         className={cn(
           'w-[220px] bg-white border-r border-gray-100 flex flex-col flex-shrink-0',
-          // Mobile: fixed off-canvas drawer that slides in/out, locked to viewport height
-          'fixed inset-y-0 left-0 z-50 h-screen transition-transform duration-200 ease-in-out',
+          // Mobile: fixed off-canvas drawer, anchored to actual viewport top/bottom
+          // (no explicit height here — that's what inset-y-0 is for; setting an
+          // explicit h-screen/100vh fights with it on mobile browsers whose
+          // address bar makes 100vh taller than the real visible viewport).
+          'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           // Desktop: always visible, back in normal flow
-          'md:static md:translate-x-0 md:z-auto md:min-h-screen md:h-auto'
+          'md:static md:translate-x-0 md:z-auto md:min-h-screen'
         )}
       >
 
