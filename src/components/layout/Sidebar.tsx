@@ -108,12 +108,12 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'w-[220px] bg-white border-r border-gray-100 flex flex-col flex-shrink-0 min-h-screen',
-          // Mobile: fixed off-canvas drawer that slides in/out
-          'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out',
+          'w-[220px] bg-white border-r border-gray-100 flex flex-col flex-shrink-0',
+          // Mobile: fixed off-canvas drawer that slides in/out, locked to viewport height
+          'fixed inset-y-0 left-0 z-50 h-screen transition-transform duration-200 ease-in-out',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           // Desktop: always visible, back in normal flow
-          'md:static md:translate-x-0 md:z-auto'
+          'md:static md:translate-x-0 md:z-auto md:min-h-screen md:h-auto'
         )}
       >
 
@@ -130,7 +130,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         </div>
 
         {/* Nav items — only shows items for this user's role */}
-        <nav className="flex-1 py-3 overflow-y-auto">
+        <nav className="flex-1 min-h-0 py-3 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon
             const active =
@@ -157,7 +157,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         </nav>
 
         {/* User info + logout */}
-        <div className="px-4 py-4 border-t border-gray-100">
+        <div className="flex-shrink-0 px-4 py-4 border-t border-gray-100">
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-semibold text-blue-700 flex-shrink-0">
               {user.initials}
