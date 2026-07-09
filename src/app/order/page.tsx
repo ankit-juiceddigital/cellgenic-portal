@@ -290,7 +290,7 @@ export default function OrderPage() {
     return (
       <>
         <Topbar title="Place an Order" subtitle="Submit an order on behalf of one of your clients" />
-        <div className="p-7">
+        <div className="p-4 md:p-7">
           <Card padding className="max-w-md text-center py-8">
             <CheckCircle size={40} className="text-brand mx-auto mb-4" />
             <p className="text-sm font-semibold text-gray-900 mb-2">Order placed successfully</p>
@@ -307,7 +307,7 @@ export default function OrderPage() {
   return (
     <>
       <Topbar title="Place an Order" subtitle="Submit an order on behalf of one of your clients" />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         <Card padding className="max-w-lg">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="flex items-center justify-between">

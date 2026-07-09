@@ -213,12 +213,12 @@ export default function CommissionsPage() {
     return (
       <>
         <Topbar title="My Commissions" subtitle="Your earnings and payout history" />
-        <div className="p-7 space-y-6">
+        <div className="p-4 md:p-7 space-y-6">
           {loading && <TableSkeleton />}
           {error && <ErrorState message={error} onRetry={refetch} />}
           {!loading && !error && data && (
             <>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <MetricCard label="Earned this month" value={data.earned_this_month} delta={`${data.orders_count} orders`} />
                 <MetricCard label="Pending payout" value={data.pending_payout} deltaType="neutral" delta="Awaiting approval" />
                 <MetricCard label="Total earned (YTD)" value={data.ytd_earned} />
@@ -291,7 +291,7 @@ export default function CommissionsPage() {
   return (
     <>
       <Topbar title="Commission Management" subtitle="Approve and manage all rep commissions" />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         {loading && <TableSkeleton />}
         {error && <ErrorState message={error} onRetry={refetch} />}
         {!loading && !error && (

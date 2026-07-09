@@ -52,7 +52,7 @@ export default function CalculatorPage() {
         title="Peptide Calculator"
         subtitle="Calculate reconstitution concentration and draw volume for a target dose"
       />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         <div className="max-w-md space-y-5">
           <Card padding>
             <div className="flex items-center gap-2 mb-4">

@@ -35,7 +35,7 @@ export default function ApprovalsPage() {
         subtitle="Newest applications first — review and approve pending providers"
         actions={<span className="text-xs text-gray-400">{pending.length} pending review</span>}
       />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         <button
           onClick={() => router.back()}
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 mb-5 transition-colors"

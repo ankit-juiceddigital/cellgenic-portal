@@ -17,7 +17,7 @@ export default function LeaderboardPage() {
   return (
     <>
       <Topbar title="Monthly Leaderboard" subtitle="Top performing sales representatives this month" />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         <p className="text-sm text-gray-400 mb-6">Rankings based on total orders placed this month. Updated in real time.</p>
 
         {loading && <TableSkeleton rows={3} />}

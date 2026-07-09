@@ -48,7 +48,7 @@ export default function ClientsPage() {
           )
         }
       />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         {loading && <TableSkeleton />}
         {error && <ErrorState message={error} onRetry={refetch} />}
         {!loading && !error && (

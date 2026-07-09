@@ -24,7 +24,7 @@ export default function UnassignedPage() {
         subtitle="Providers registered without a referral code"
         actions={<span className="text-xs text-gray-400">{unassigned.length} pending assignment</span>}
       />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         <p className="text-sm text-gray-400 mb-4">These providers registered without a referral code. Assign them to a rep below.</p>
         {loading && <TableSkeleton />}
         {error && <ErrorState message={error} onRetry={refetch} />}

@@ -8,7 +8,7 @@ export default function SettingsPage() {
   return (
     <>
       <Topbar title="Settings" subtitle="Platform configuration" />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         <Card padding className="max-w-md">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Commission settings</h2>
           <div className="space-y-4">

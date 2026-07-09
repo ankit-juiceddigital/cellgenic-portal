@@ -22,7 +22,7 @@ export default function ReferralPage() {
   return (
     <>
       <Topbar title="My Referral Link" subtitle="Share your unique link to register new providers" />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         {loading && <TableSkeleton rows={3} />}
         {error && <ErrorState message={error} onRetry={refetch} />}
         {!loading && !error && data && (

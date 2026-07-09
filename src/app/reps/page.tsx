@@ -24,7 +24,7 @@ export default function RepsPage() {
         title={isAdmin ? 'Sales Representatives' : 'Rep Performance'}
         subtitle={isAdmin ? 'Manage rep accounts and codes' : 'Individual rep metrics this month'}
       />
-      <div className="p-7">
+      <div className="p-4 md:p-7">
         {loading && <TableSkeleton />}
         {error && <ErrorState message={error} onRetry={refetch} />}
         {!loading && !error && (

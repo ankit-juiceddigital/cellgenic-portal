@@ -73,7 +73,14 @@ export const ALLOWED_ROUTES: Record<string, string[]> = {
   ],
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Whether the mobile off-canvas drawer is open. Ignored on desktop (md+), where the sidebar is always visible. */
+  mobileOpen?: boolean
+  /** Called when the drawer should close on mobile (backdrop click, nav link tap, sign out). */
+  onClose?: () => void
+}
+
+export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const { user, logout } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
@@ -84,69 +91,91 @@ export function Sidebar() {
 
   const handleLogout = () => {
     logout()
+    onClose?.()
     router.push('/auth/login')
   }
 
   return (
-    <aside className="w-[220px] bg-white border-r border-gray-100 flex flex-col flex-shrink-0 min-h-screen">
-
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-100">
-        <Image
-          src="https://cellgenic.com/wp-content/uploads/2026/05/cellgenic_official_logo_black.png"
-          alt="CellGenic"
-          width={140}
-          height={36}
-          style={{ objectFit: 'contain', display: 'inline-block' }}
-          unoptimized
+    <>
+      {/* Mobile backdrop — tap to close */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
         />
-      </div>
+      )}
 
-      {/* Nav items — only shows items for this user's role */}
-      <nav className="flex-1 py-3">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const active =
-            pathname === item.href ||
-            (item.href !== '/dashboard' && pathname.startsWith(item.href))
+      <aside
+        className={cn(
+          'w-[220px] bg-white border-r border-gray-100 flex flex-col flex-shrink-0 min-h-screen',
+          // Mobile: fixed off-canvas drawer that slides in/out
+          'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // Desktop: always visible, back in normal flow
+          'md:static md:translate-x-0 md:z-auto'
+        )}
+      >
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-2.5 px-5 py-2 text-sm transition-colors',
-                active
-                  ? 'bg-gray-50 text-gray-900 font-medium'
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
-              )}
-            >
-              <Icon size={16} />
-              {item.label}
-            </Link>
-          )
-        })}
-      </nav>
-
-      {/* User info + logout */}
-      <div className="px-4 py-4 border-t border-gray-100">
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-semibold text-blue-700 flex-shrink-0">
-            {user.initials}
-          </div>
-          <div className="overflow-hidden flex-1">
-            <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
-            <p className="text-xs text-gray-400">{getRoleLabel(user.role)}</p>
-          </div>
+        {/* Logo */}
+        <div className="px-5 py-5 border-b border-gray-100">
+          <Image
+            src="https://cellgenic.com/wp-content/uploads/2026/05/cellgenic_official_logo_black.png"
+            alt="CellGenic"
+            width={140}
+            height={36}
+            style={{ objectFit: 'contain', display: 'inline-block' }}
+            unoptimized
+          />
         </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-700 transition-colors w-full py-1"
-        >
-          <LogOut size={13} />
-          Sign out
-        </button>
-      </div>
-    </aside>
+
+        {/* Nav items — only shows items for this user's role */}
+        <nav className="flex-1 py-3 overflow-y-auto">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const active =
+              pathname === item.href ||
+              (item.href !== '/dashboard' && pathname.startsWith(item.href))
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-2.5 px-5 py-2 text-sm transition-colors',
+                  active
+                    ? 'bg-gray-50 text-gray-900 font-medium'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                )}
+              >
+                <Icon size={16} />
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* User info + logout */}
+        <div className="px-4 py-4 border-t border-gray-100">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-semibold text-blue-700 flex-shrink-0">
+              {user.initials}
+            </div>
+            <div className="overflow-hidden flex-1">
+              <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+              <p className="text-xs text-gray-400">{getRoleLabel(user.role)}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-700 transition-colors w-full py-1"
+          >
+            <LogOut size={13} />
+            Sign out
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }

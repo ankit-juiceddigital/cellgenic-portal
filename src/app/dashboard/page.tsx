@@ -29,21 +29,21 @@ export default function DashboardPage() {
     if (clientsLoading) return (
       <>
         <Topbar title="My Dashboard" subtitle="Overview of your clients and activity" />
-        <div className="p-7"><MetricsSkeleton /><TableSkeleton /></div>
+        <div className="p-4 md:p-7"><MetricsSkeleton /><TableSkeleton /></div>
       </>
     )
     if (clientsError) return (
       <>
         <Topbar title="My Dashboard" />
-        <div className="p-7"><ErrorState message={clientsError} /></div>
+        <div className="p-4 md:p-7"><ErrorState message={clientsError} /></div>
       </>
     )
 
     return (
       <>
         <Topbar title="My Dashboard" subtitle="Overview of your clients and activity" />
-        <div className="p-7 space-y-6">
-          <div className="grid grid-cols-4 gap-3">
+        <div className="p-4 md:p-7 space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard label="My clients" value={String(clients?.length || 0)} delta="+1 this month" />
             <MetricCard label="Orders this month" value={String(clients?.reduce((s: number, c: any) => s + (c.orders_this_month || 0), 0) || 0)} delta="vs last month" />
             <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta={atRiskClients.length > 0 ? '30+ days no order' : 'All active'} />
@@ -138,15 +138,15 @@ export default function DashboardPage() {
     if (clientsLoading || repsLoading) return (
       <>
         <Topbar title="Sales Overview" subtitle="June 2026 performance across all reps" />
-        <div className="p-7"><MetricsSkeleton /><TableSkeleton /></div>
+        <div className="p-4 md:p-7"><MetricsSkeleton /><TableSkeleton /></div>
       </>
     )
 
     return (
       <>
         <Topbar title="Sales Overview" subtitle="Performance across all reps" />
-        <div className="p-7 space-y-6">
-          <div className="grid grid-cols-4 gap-3">
+        <div className="p-4 md:p-7 space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard label="Total clients" value={String(clients?.length || 0)} delta="Active providers" />
             <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta="30+ days no order" />
             <MetricCard label="Active reps" value={String(reps?.length || 0)} delta="All active" deltaType="neutral" />
@@ -197,15 +197,15 @@ export default function DashboardPage() {
   return (
     <>
       <Topbar title="Platform Overview" subtitle="Full platform visibility" />
-      <div className="p-7 space-y-6">
-        <div className="grid grid-cols-4 gap-3">
+      <div className="p-4 md:p-7 space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <MetricCard label="Total providers" value={String(clients?.length || 0)} delta="Approved accounts" deltaType="neutral" />
           <MetricCard label="Pending approvals" value={String(pending?.length || 0)} delta="Review now →" deltaType={pending?.length > 0 ? 'negative' : 'positive'} />
           <MetricCard label="Active reps" value={String(reps?.length || 0)} delta="All active" deltaType="neutral" />
           <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta="30+ days no order" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-gray-900">Pending provider approvals</h2>

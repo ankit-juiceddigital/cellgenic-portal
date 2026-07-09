@@ -197,7 +197,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
   return (
     <>
       <Topbar title="Client Details" subtitle="Order history and follow-up log" />
-      <div className="p-7 space-y-5">
+      <div className="p-4 md:p-7 space-y-5">
         <Link href="/clients">
           <button className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
             <ArrowLeft size={14} /> Back to clients
