@@ -13,7 +13,7 @@ const WC_SECRET = process.env.WC_CONSUMER_SECRET
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   if (!WC_URL || !WC_KEY || !WC_SECRET) {
     return NextResponse.json(
@@ -22,7 +22,7 @@ export async function GET(
     )
   }
 
-  const customerId = params.id
+  const { id: customerId } = await params
   if (!customerId || isNaN(Number(customerId))) {
     return NextResponse.json({ error: 'Invalid customer ID.' }, { status: 400 })
   }

@@ -10,7 +10,7 @@ const WC_SECRET = process.env.WC_CONSUMER_SECRET
 
 export async function GET(
   request: Request,
-  { params }: { params: { customerId: string } }
+  { params }: { params: { customerId: string } | Promise<{ customerId: string }> }
 ) {
   if (!WC_URL || !WC_KEY || !WC_SECRET) {
     return NextResponse.json(
@@ -19,10 +19,11 @@ export async function GET(
     )
   }
 
+  const { customerId } = await params
   const credentials = Buffer.from(`${WC_KEY}:${WC_SECRET}`).toString('base64')
 
   const res = await fetch(
-    `${WC_URL}/wp-json/wc/v3/orders?customer=${params.customerId}&per_page=50&orderby=date&order=desc`,
+    `${WC_URL}/wp-json/wc/v3/orders?customer=${customerId}&per_page=50&orderby=date&order=desc`,
     {
       headers: {
         'Authorization': `Basic ${credentials}`,

@@ -19,6 +19,10 @@ import {
   getMyCommissions,
   approveCommission,
   getMyReferralStats,
+  deactivateClient,
+  reactivateClient,
+  deleteClient,
+  deleteRep,
 } from '@/lib/woocommerce'
 import { getNotes, saveNote } from '@/lib/notes'
 import type { Note } from '@/types'
@@ -137,6 +141,25 @@ async function fetchProductsFromAPI() {
   productsCache = data
   productsCacheTime = Date.now()
   return data
+}
+
+
+// ─────────────────────────────────────────────
+// INVENTORY — live warehouse stock (Roberto's CellGenic Ops API)
+// Never cached client-side: stock data is always-fresh by design, so a
+// stale read here risks overselling. No client-side cache layer, unlike
+// products above.
+// ─────────────────────────────────────────────
+export function useInventory() {
+  return useFetch(async () => {
+    const res = await fetch('/api/inventory', { cache: 'no-store' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `Inventory API error: ${res.status}`)
+    }
+    const data = await res.json()
+    return data.products || []
+  }, [])
 }
 
 
@@ -338,6 +361,133 @@ export function useAssignClient() {
   }
 
   return { assign, processing }
+}
+
+
+// ─────────────────────────────────────────────
+// CLIENT ACCESS — deactivate / reactivate (admin)
+// Used on the All Clients and Unassigned tables. Works the same way
+// regardless of whether the client currently has a rep assigned.
+// ─────────────────────────────────────────────
+export function useClientAccess() {
+  const { user } = useAuth()
+  const [processing, setProcessing] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const deactivate = async (userId: number, onSuccess: () => void) => {
+    setProcessing(userId)
+    setError(null)
+    try {
+      await deactivateClient(user!.token, userId)
+      onSuccess()
+    } catch (err: any) {
+      setError(err.message || 'Failed to deactivate client.')
+    } finally {
+      setProcessing(null)
+    }
+  }
+
+  const reactivate = async (userId: number, onSuccess: () => void) => {
+    setProcessing(userId)
+    setError(null)
+    try {
+      await reactivateClient(user!.token, userId)
+      onSuccess()
+    } catch (err: any) {
+      setError(err.message || 'Failed to reactivate client.')
+    } finally {
+      setProcessing(null)
+    }
+  }
+
+  // PERMANENT delete — removes the account and all its order history.
+  // Cannot be undone; the backend restricts this to administrators only.
+  const remove = async (userId: number, onSuccess: () => void) => {
+    setProcessing(userId)
+    setError(null)
+    try {
+      await deleteClient(user!.token, userId)
+      onSuccess()
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete client.')
+    } finally {
+      setProcessing(null)
+    }
+  }
+
+  return { deactivate, reactivate, remove, processing, error }
+}
+
+
+// ─────────────────────────────────────────────
+// REP ACCESS — permanent delete (admin only)
+// Their clients are unassigned (not deleted) so they surface on the
+// Unassigned tab — see /api/delete-rep on the WordPress side.
+// ─────────────────────────────────────────────
+export function useRepAccess() {
+  const { user } = useAuth()
+  const [processing, setProcessing] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const remove = async (repId: number, onSuccess: () => void) => {
+    setProcessing(repId)
+    setError(null)
+    try {
+      await deleteRep(user!.token, repId)
+      onSuccess()
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete rep.')
+    } finally {
+      setProcessing(null)
+    }
+  }
+
+  return { remove, processing, error }
+}
+
+
+// ─────────────────────────────────────────────
+// ALL ORDERS — platform-wide order list (Orders page)
+// Requires the list of known client/customer IDs — see the comment in
+// /api/orders/all/route.ts for why this can't be an unfiltered call.
+// ─────────────────────────────────────────────
+export function useAllOrders(customerIds: number[], unrestricted: boolean = false) {
+  const key = customerIds.slice().sort((a, b) => a - b).join(',')
+  return useFetch(async () => {
+    // Admins get mode=all — a true, unfiltered "every order on the
+    // platform" listing, with the server falling back to the known-client
+    // approach automatically if the WC key doesn't permit that. Reps and
+    // managers just use the known-client approach directly.
+    if (!unrestricted && !customerIds.length) return { orders: [], usedFallback: false }
+
+    const params = new URLSearchParams()
+    if (unrestricted) params.set('mode', 'all')
+    if (key) params.set('customers', key)
+
+    const res = await fetch(`/api/orders/all?${params.toString()}`)
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `Orders API error: ${res.status}`)
+    }
+    return res.json()
+  }, [key, unrestricted])
+}
+
+// ─────────────────────────────────────────────
+// ORDERS FOR A SET OF CUSTOMERS — used on the Rep detail page to build
+// each assigned client's order amount + complete order history.
+// ─────────────────────────────────────────────
+export function useOrdersByCustomers(customerIds: number[]) {
+  const key = customerIds.slice().sort((a, b) => a - b).join(',')
+  return useFetch(async () => {
+    if (!customerIds.length) return []
+    const res = await fetch(`/api/orders/by-customers?customers=${key}`)
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `Orders API error: ${res.status}`)
+    }
+    return res.json()
+  }, [key])
 }
 
 

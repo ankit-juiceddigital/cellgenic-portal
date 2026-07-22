@@ -168,6 +168,44 @@ export async function assignClientToRep(token: string, userId: number, repCode: 
 
 
 // ─────────────────────────────────────────────
+// CLIENT ACCESS — deactivate / reactivate (admin)
+// Works for both assigned and unassigned clients — the WordPress side
+// simply flips `account_status` and blocks login while deactivated.
+// ─────────────────────────────────────────────
+export async function deactivateClient(token: string, userId: number) {
+  return cgFetch('/deactivate-client', token, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  })
+}
+
+export async function reactivateClient(token: string, userId: number) {
+  return cgFetch('/reactivate-client', token, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  })
+}
+
+// PERMANENT delete — removes the client account and all of its order
+// history. Cannot be undone. Admin-only on the backend.
+export async function deleteClient(token: string, userId: number) {
+  return cgFetch('/delete-client', token, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  })
+}
+
+// PERMANENT delete of a Sales Rep account. Their clients are unassigned
+// (not deleted) so they surface on the Unassigned tab. Admin-only.
+export async function deleteRep(token: string, userId: number) {
+  return cgFetch('/delete-rep', token, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  })
+}
+
+
+// ─────────────────────────────────────────────
 // PROVIDER APPROVALS
 // ─────────────────────────────────────────────
 export async function getPendingProviders(token: string) {

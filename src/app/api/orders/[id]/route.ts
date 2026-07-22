@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const WC_URL = process.env.NEXT_PUBLIC_WC_URL
   const WC_KEY = process.env.WC_CONSUMER_KEY
@@ -19,7 +19,9 @@ export async function GET(
     )
   }
 
-  const orderId = params.id
+  // `await` on a plain object just resolves immediately, so this is safe
+  // whether params is sync (Next 14) or a Promise (Next 15+).
+  const { id: orderId } = await params
   if (!orderId || isNaN(Number(orderId))) {
     return NextResponse.json({ error: 'Invalid order ID.' }, { status: 400 })
   }

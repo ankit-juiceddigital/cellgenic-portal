@@ -44,14 +44,15 @@ export default function DashboardPage() {
         <Topbar title="My Dashboard" subtitle="Overview of your clients and activity" />
         <div className="p-4 md:p-7 space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard label="My clients" value={String(clients?.length || 0)} delta="+1 this month" />
-            <MetricCard label="Orders this month" value={String(clients?.reduce((s: number, c: any) => s + (c.orders_this_month || 0), 0) || 0)} delta="vs last month" />
-            <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta={atRiskClients.length > 0 ? '30+ days no order' : 'All active'} />
+            <MetricCard label="My clients" value={String(clients?.length || 0)} delta="+1 this month" href="/clients" />
+            <MetricCard label="Orders this month" value={String(clients?.reduce((s: number, c: any) => s + (c.orders_this_month || 0), 0) || 0)} delta="vs last month" href="/orders" />
+            <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta={atRiskClients.length > 0 ? '30+ days no order' : 'All active'} href="/clients?filter=at-risk" />
             <MetricCard
               label="My rank"
               value={myRankData ? `${myRankData.rank === 1 ? '🥇' : myRankData.rank === 2 ? '🥈' : '🥉'} ${myRankData.rank === 1 ? '1st' : myRankData.rank === 2 ? '2nd' : `${myRankData.rank}th`}` : '—'}
               delta="View leaderboard →"
               deltaType="neutral"
+              href="/leaderboard"
             />
           </div>
 
@@ -147,10 +148,10 @@ export default function DashboardPage() {
         <Topbar title="Sales Overview" subtitle="Performance across all reps" />
         <div className="p-4 md:p-7 space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard label="Total clients" value={String(clients?.length || 0)} delta="Active providers" />
-            <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta="30+ days no order" />
-            <MetricCard label="Active reps" value={String(reps?.length || 0)} delta="All active" deltaType="neutral" />
-            <MetricCard label="Pending approvals" value={String(pending?.length || 0)} deltaType="neutral" delta="Awaiting review" />
+            <MetricCard label="Total clients" value={String(clients?.length || 0)} delta="Active providers" href="/clients" />
+            <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta="30+ days no order" href="/clients?filter=at-risk" />
+            <MetricCard label="Active reps" value={String(reps?.length || 0)} delta="All active" deltaType="neutral" href="/reps" />
+            <MetricCard label="Orders this month" value={String((reps || []).reduce((s: number, r: any) => s + (r.ordersMonth || 0), 0))} deltaType="neutral" delta="Across all reps" href="/orders" />
           </div>
 
           <div>
@@ -175,7 +176,9 @@ export default function DashboardPage() {
                         <tr key={rep.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                           <td className="px-4 py-3 text-xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</td>
                           <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900">{rep.name}</p>
+                            <Link href={`/reps/${rep.id}`} className="font-medium text-gray-900 hover:text-brand hover:underline">
+                              {rep.name}
+                            </Link>
                             <p className="text-xs text-gray-400 font-mono">Code: {rep.rep_code}</p>
                           </td>
                           <td className="px-4 py-3 text-gray-600">{rep.clients}</td>
@@ -194,15 +197,39 @@ export default function DashboardPage() {
   }
 
   // ── ADMIN VIEW ──
+  // Total platform revenue this month, derived from the per-rep revenue
+  // figures already computed server-side (cellgenic_get_reps) — avoids an
+  // extra round trip just to get a sum.
+  const totalRevenue = (reps || []).reduce((sum: number, r: any) => {
+    const n = parseFloat(String(r.revenue || '0').replace(/[^0-9.-]/g, ''))
+    return sum + (isNaN(n) ? 0 : n)
+  }, 0)
+  const ordersThisMonth = (reps || []).reduce((s: number, r: any) => s + (r.ordersMonth || 0), 0)
+
   return (
     <>
       <Topbar title="Platform Overview" subtitle="Full platform visibility" />
       <div className="p-4 md:p-7 space-y-6">
+        {/* Row 1 — providers, approvals, reps, at-risk */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard label="Total providers" value={String(clients?.length || 0)} delta="Approved accounts" deltaType="neutral" />
-          <MetricCard label="Pending approvals" value={String(pending?.length || 0)} delta="Review now →" deltaType={pending?.length > 0 ? 'negative' : 'positive'} />
-          <MetricCard label="Active reps" value={String(reps?.length || 0)} delta="All active" deltaType="neutral" />
-          <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta="30+ days no order" />
+          <MetricCard label="Total providers" value={String(clients?.length || 0)} delta="View all →" deltaType="neutral" href="/clients" />
+          <MetricCard label="Pending approvals" value={String(pending?.length || 0)} delta="Review now →" deltaType={pending?.length > 0 ? 'negative' : 'positive'} href="/approvals" />
+          <MetricCard label="Active reps" value={String(reps?.length || 0)} delta="View reps →" deltaType="neutral" href="/reps" />
+          <MetricCard label="At-risk clients" value={String(atRiskClients.length)} deltaType={atRiskClients.length > 0 ? 'negative' : 'positive'} delta="30+ days no order" href="/clients?filter=at-risk" />
+        </div>
+
+        {/* Row 2 — full platform activity: orders, revenue, unassigned, inventory */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <MetricCard label="Orders this month" value={String(ordersThisMonth)} delta="View all orders →" deltaType="neutral" href="/orders" />
+          <MetricCard label="Revenue this month" value={`$${totalRevenue.toLocaleString()}`} delta="Across all reps" deltaType="neutral" href="/orders" />
+          <MetricCard
+            label="Unassigned providers"
+            value={String((clients || []).filter((c: any) => !c.assigned_rep_code).length)}
+            delta="Assign to a rep →"
+            deltaType="neutral"
+            href="/unassigned"
+          />
+          <MetricCard label="Inventory" value="View stock" delta="Products & availability →" deltaType="neutral" href="/inventory" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -213,13 +240,17 @@ export default function DashboardPage() {
             </div>
             <Card>
               {(pending || []).slice(0, 3).map((p: any) => (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0">
+                <Link
+                  key={p.id}
+                  href="/approvals"
+                  className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
+                >
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{p.name}</p>
                     <p className="text-xs text-gray-400">{p.clinic} · {p.country}</p>
                   </div>
                   <Badge variant="blue">Pending</Badge>
-                </div>
+                </Link>
               ))}
               {(!pending || pending.length === 0) && (
                 <p className="px-4 py-5 text-sm text-gray-400">No pending approvals.</p>
@@ -231,14 +262,18 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-gray-900 mb-3">At-risk clients</h2>
             <Card>
               {atRiskClients.slice(0, 5).map((cl: any) => (
-                <div key={cl.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0">
+                <Link
+                  key={cl.id}
+                  href={`/clients/${cl.id}`}
+                  className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
+                >
                   <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">{cl.name}</p>
                     <p className="text-xs text-gray-400">{cl.clinic} · Rep: {cl.assigned_rep}</p>
                   </div>
                   <Badge variant="amber" className="ml-auto">{cl.days_since}d</Badge>
-                </div>
+                </Link>
               ))}
               {atRiskClients.length === 0 && (
                 <p className="px-4 py-5 text-sm text-gray-400">No at-risk clients.</p>

@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { usePendingProviders, useProviderActions } from '@/hooks/useData'
+import { useAuth } from '@/lib/auth-context'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -21,6 +22,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 
 export default function ApprovalsPage() {
   const router = useRouter()
+  const { isRep } = useAuth()
   const { data: providers, loading, error, refetch } = usePendingProviders()
   const { approve, reject, processing } = useProviderActions()
   const [actioned, setActioned] = useState<Record<number, 'approved' | 'rejected'>>({})
@@ -31,8 +33,8 @@ export default function ApprovalsPage() {
   return (
     <>
       <Topbar
-        title="Provider Approvals"
-        subtitle="Newest applications first — review and approve pending providers"
+        title={isRep ? 'My Referral Approvals' : 'Provider Approvals'}
+        subtitle={isRep ? 'Providers who signed up under your referral code' : 'Newest applications first — review and approve pending providers'}
         actions={<span className="text-xs text-gray-400">{pending.length} pending review</span>}
       />
       <div className="p-4 md:p-7">

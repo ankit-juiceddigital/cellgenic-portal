@@ -11,16 +11,16 @@ import type { NextRequest } from 'next/server'
 // ─────────────────────────────────────────────
 const ALLOWED_ROUTES: Record<string, string[]> = {
   sales_rep: [
-    '/dashboard', '/clients', '/order', '/calculator',
+    '/dashboard', '/clients', '/order', '/orders', '/approvals', '/calculator',
     '/leaderboard', '/commissions', '/referral',
   ],
   sales_manager: [
     '/dashboard', '/clients', '/order', '/reps',
-    '/leaderboard', '/commissions',
+    '/orders', '/leaderboard', '/commissions',
   ],
   administrator: [
     '/dashboard', '/clients', '/reps', '/unassigned',
-    '/approvals', '/commissions', '/settings',
+    '/approvals', '/orders', '/inventory', '/commissions', '/settings',
   ],
 }
 

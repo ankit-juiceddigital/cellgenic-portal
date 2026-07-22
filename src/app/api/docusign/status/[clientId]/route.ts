@@ -13,15 +13,17 @@ const CELLGENIC_SERVICE_TOKEN = process.env.CELLGENIC_SERVICE_TOKEN
 
 export async function GET(
   _request: Request,
-  { params }: { params: { clientId: string } }
+  { params }: { params: { clientId: string } | Promise<{ clientId: string }> }
 ) {
   if (!WP_URL || !CELLGENIC_SERVICE_TOKEN) {
     return NextResponse.json({ research: null, cosmetic: null })
   }
 
+  const { clientId } = await params
+
   try {
     const res = await fetch(
-      `${WP_URL}/wp-json/cellgenic/v1/verify-consent?client_id=${params.clientId}`,
+      `${WP_URL}/wp-json/cellgenic/v1/verify-consent?client_id=${clientId}`,
       {
         headers: { Authorization: `Bearer ${CELLGENIC_SERVICE_TOKEN}` },
         cache: 'no-store',

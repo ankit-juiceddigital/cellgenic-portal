@@ -15,6 +15,7 @@ import { TableSkeleton, ErrorState } from '@/components/ui/Skeleton'
 import { noteIconClass, noteTagClass, noteTagLabel } from '@/lib/utils'
 import { ArrowLeft, Phone, Mail, FileText, Clock, AlertTriangle, Plus, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import { use } from 'react'
 import type { Note } from '@/types'
 
 // ─────────────────────────────────────────────
@@ -142,9 +143,15 @@ const noteIcon = (type: string) => {
   return <FileText size={14} />
 }
 
-export default function ClientDetailPage({ params }: { params: { id: string } }) {
+export default function ClientDetailPage({ params }: { params: { id: string } | Promise<{ id: string }> }) {
   const { isRep } = useAuth()
-  const clientId = parseInt(params.id)
+  // `params` is a plain object on Next 14 but a Promise on Next 15+ ("async
+  // dynamic APIs"). Handle both so this doesn't silently resolve to
+  // `undefined` -> NaN client IDs -> failed customer/notes requests.
+  const resolvedParams = typeof (params as any)?.then === 'function'
+    ? use(params as Promise<{ id: string }>)
+    : (params as { id: string })
+  const clientId = parseInt(resolvedParams.id)
 
   const { data: clientOrders, loading: ordersLoading } = useClientOrders(clientId)
   const { data: customer } = useCustomer(clientId)

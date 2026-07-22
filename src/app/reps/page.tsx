@@ -3,20 +3,26 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { useReps } from '@/hooks/useData'
+import { useReps, useRepAccess } from '@/hooks/useData'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { TableSkeleton, ErrorState } from '@/components/ui/Skeleton'
 import { EditRepModal } from '@/components/EditRepModal'
+import { Trash2 } from 'lucide-react'
+import Link from 'next/link'
 
 export default function RepsPage() {
   const { isAdmin } = useAuth()
   const { data: reps, loading, error, refetch } = useReps()
+  const { remove, processing: deleteProcessing, error: deleteError } = useRepAccess()
   const [editingRepId, setEditingRepId] = useState<number | null>(null)
+  const [deletedIds, setDeletedIds] = useState<number[]>([])
 
-  const sorted = (reps || []).sort((a: any, b: any) => b.ordersMonth - a.ordersMonth)
+  const sorted = (reps || [])
+    .filter((r: any) => !deletedIds.includes(r.id))
+    .sort((a: any, b: any) => b.ordersMonth - a.ordersMonth)
 
   return (
     <>
@@ -25,6 +31,11 @@ export default function RepsPage() {
         subtitle={isAdmin ? 'Manage rep accounts and codes' : 'Individual rep metrics this month'}
       />
       <div className="p-4 md:p-7">
+        {deleteError && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-600">
+            {deleteError}
+          </div>
+        )}
         {loading && <TableSkeleton />}
         {error && <ErrorState message={error} onRetry={refetch} />}
         {!loading && !error && (
@@ -42,7 +53,11 @@ export default function RepsPage() {
                   {sorted.map((rep: any, i: number) => (
                     <tr key={rep.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                       <td className="px-4 py-3 text-xl">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{rep.name}</td>
+                      <td className="px-4 py-3 font-medium">
+                        <Link href={`/reps/${rep.id}`} className="text-gray-900 hover:text-brand hover:underline">
+                          {rep.name}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3">
                         <span className="font-mono text-xs bg-gray-50 border border-gray-100 px-2 py-0.5 rounded">{rep.rep_code}</span>
                       </td>
@@ -51,9 +66,29 @@ export default function RepsPage() {
                       <td className="px-4 py-3"><Badge variant="green">Active</Badge></td>
                       {isAdmin && (
                         <td className="px-4 py-3">
-                          <Button size="sm" onClick={() => setEditingRepId(rep.id)}>
-                            Edit
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" onClick={() => setEditingRepId(rep.id)}>
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="border-red-300 text-red-700 hover:bg-red-50"
+                              disabled={deleteProcessing === rep.id}
+                              onClick={() => {
+                                const typed = window.prompt(
+                                  `This permanently deletes ${rep.name}'s rep account. Their ${rep.clients} assigned client(s) will move to Unassigned (not deleted) so they can be reassigned. This cannot be undone.\n\nType the rep's name exactly to confirm:\n"${rep.name}"`
+                                )
+                                if (typed === null) return
+                                if (typed === rep.name) {
+                                  remove(rep.id, () => setDeletedIds(prev => [...prev, rep.id]))
+                                } else {
+                                  alert('Name did not match — nothing was deleted.')
+                                }
+                              }}
+                            >
+                              <Trash2 size={13} /> {deleteProcessing === rep.id ? 'Deleting...' : 'Delete'}
+                            </Button>
+                          </div>
                         </td>
                       )}
                     </tr>
