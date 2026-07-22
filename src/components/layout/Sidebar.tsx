@@ -27,7 +27,7 @@ const NAV_CONFIG = {
     { icon: Users,           label: 'My Clients',         href: '/clients' },
     { icon: ShoppingCart,    label: 'Place Order',         href: '/order' },
     { icon: ClipboardList,   label: 'My Orders',           href: '/orders' },
-    { icon: ClipboardCheck,  label: 'My Referrals',        href: '/approvals' },
+    { icon: ClipboardCheck,  label: 'Provider Approvals',        href: '/approvals' },
     { icon: Calculator,      label: 'Peptide Calculator',  href: '/calculator' },
     { icon: Trophy,          label: 'Leaderboard',         href: '/leaderboard' },
     { icon: Coins,           label: 'My Commissions',      href: '/commissions' },
