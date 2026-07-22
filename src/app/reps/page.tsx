@@ -70,7 +70,7 @@ export default function RepsPage() {
                             <Button size="sm" onClick={() => setEditingRepId(rep.id)}>
                               Edit
                             </Button>
-                            <Button
+                            {/*<Button
                               size="sm"
                               className="border-red-300 text-red-700 hover:bg-red-50"
                               disabled={deleteProcessing === rep.id}
@@ -87,7 +87,7 @@ export default function RepsPage() {
                               }}
                             >
                               <Trash2 size={13} /> {deleteProcessing === rep.id ? 'Deleting...' : 'Delete'}
-                            </Button>
+                            </Button> */}
                           </div>
                         </td>
                       )}
