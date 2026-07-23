@@ -82,6 +82,20 @@ export async function getClientOrders(customerId: number) {
     status: o.status,
     total: `$${parseFloat(o.total).toLocaleString()}`,
     products: o.line_items.map((item: any) => `${item.name} × ${item.quantity}`).join(', '),
+    // Full breakdown — used by the expandable order-details view so
+    // "Order History" actually shows everything, not just a summary line.
+    lineItems: o.line_items.map((item: any) => ({
+      name: item.name,
+      quantity: item.quantity,
+      unitPrice: item.quantity > 0 ? (parseFloat(item.total) / item.quantity) : 0,
+      lineTotal: parseFloat(item.total),
+      sku: item.sku || null,
+    })),
+    subtotal: o.line_items.reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || item.total || '0'), 0),
+    shippingMethod: (o.shipping_lines || [])[0]?.method_title || null,
+    shippingCost: (o.shipping_lines || []).reduce((sum: number, s: any) => sum + parseFloat(s.total || '0'), 0),
+    paymentMethod: o.payment_method_title || o.payment_method || null,
+    placedBy: (o.meta_data || []).find((m: any) => m.key === '_placed_by_rep')?.value || null,
   }))
 }
 

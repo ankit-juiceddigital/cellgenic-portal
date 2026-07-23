@@ -239,19 +239,28 @@ export default function DashboardPage() {
               <Link href="/approvals"><Button size="sm">Review all</Button></Link>
             </div>
             <Card>
-              {(pending || []).slice(0, 3).map((p: any) => (
-                <Link
-                  key={p.id}
-                  href="/approvals"
-                  className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{p.name}</p>
-                    <p className="text-xs text-gray-400">{p.clinic} · {p.country}</p>
-                  </div>
-                  <Badge variant="blue">Pending</Badge>
-                </Link>
-              ))}
+              {(pending || []).slice(0, 3).map((p: any) => {
+                const matchedRep = (reps || []).find(
+                  (r: any) => r.rep_code && p.referal_linkcode &&
+                    r.rep_code.toLowerCase() === p.referal_linkcode.toLowerCase()
+                )
+                return (
+                  <Link
+                    key={p.id}
+                    href="/approvals"
+                    className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{p.name}</p>
+                      <p className="text-xs text-gray-400">{p.clinic} · {p.country}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Referred by: {p.referal_linkcode ? (matchedRep ? matchedRep.name : 'Unknown rep') : 'None (unclaimed)'}
+                      </p>
+                    </div>
+                    <Badge variant="blue">Pending</Badge>
+                  </Link>
+                )
+              })}
               {(!pending || pending.length === 0) && (
                 <p className="px-4 py-5 text-sm text-gray-400">No pending approvals.</p>
               )}

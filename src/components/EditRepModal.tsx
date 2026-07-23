@@ -3,12 +3,24 @@
 import { useState, useEffect } from 'react'
 import { useSingleRep, useUpdateRep } from '@/hooks/useData'
 import { Button } from '@/components/ui/Button'
-import { X } from 'lucide-react'
+import { X, Wand2 } from 'lucide-react'
 
 interface EditRepModalProps {
   repId: number
   onClose: () => void
   onSaved: () => void
+}
+
+// Converts a full name into the rep-code convention used in referral
+// links, e.g. "Dario Ramirez" -> "darioramirez" (matches
+// https://cellgenic.com/register/?rep=darioramirez). Strips accents so
+// "José Luis" -> "joseluis" rather than leaving the accented character in
+// a URL param.
+function slugifyName(name: string): string {
+  return name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents (é -> e)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '') // drop spaces, punctuation, everything but letters/numbers
 }
 
 export function EditRepModal({ repId, onClose, onSaved }: EditRepModalProps) {
@@ -74,14 +86,26 @@ export function EditRepModal({ repId, onClose, onSaved }: EditRepModalProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-400 mb-1 block">Rep code</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-gray-400">Rep code</label>
+                <button
+                  type="button"
+                  onClick={() => name && setRepCode(slugifyName(name))}
+                  disabled={!name}
+                  className="flex items-center gap-1 text-xs text-brand hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
+                >
+                  <Wand2 size={11} /> Generate from name
+                </button>
+              </div>
               <input
                 value={repCode}
-                onChange={e => setRepCode(e.target.value.toUpperCase())}
+                onChange={e => setRepCode(slugifyName(e.target.value))}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand font-mono"
-                placeholder="e.g. JSANTOS"
+                placeholder="e.g. darioramirez"
               />
-              <p className="text-xs text-gray-400 mt-1">Used to match clients who register via this rep's referral link.</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Used in this rep's referral link: cellgenic.com/register/?rep={repCode || '...'}
+              </p>
             </div>
             <div>
               <label className="text-xs text-gray-400 mb-1 block">Phone (optional)</label>

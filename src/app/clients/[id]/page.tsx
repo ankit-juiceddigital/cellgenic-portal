@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button'
 import { Tabs } from '@/components/ui/Tabs'
 import { TableSkeleton, ErrorState } from '@/components/ui/Skeleton'
 import { noteIconClass, noteTagClass, noteTagLabel } from '@/lib/utils'
-import { ArrowLeft, Phone, Mail, FileText, Clock, AlertTriangle, Plus, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, FileText, Clock, AlertTriangle, Plus, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 import { use } from 'react'
 import type { Note } from '@/types'
@@ -169,6 +169,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
   const { placeOrder, loading: orderLoading, success: orderSuccess, error: orderError } = usePlaceOrder()
 
   const [noteText, setNoteText] = useState('')
+  const [expandedOrders, setExpandedOrders] = useState<Record<number, boolean>>({})
   const [noteType, setNoteType] = useState<Note['type']>('note')
   const [saving, setSaving] = useState(false)
 
@@ -251,19 +252,80 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
                       <TableSkeleton rows={3} />
                     ) : clientOrders && clientOrders.length > 0 ? (
                       <div className="space-y-0">
-                        {clientOrders.map((order: any, i: number) => (
-                          <div key={i} className="flex gap-4 py-4 border-b border-gray-50 last:border-0">
-                            <div className="w-2 h-2 rounded-full bg-brand mt-1.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-400 font-mono mb-0.5">{order.number} · {order.date}</p>
-                              <p className="text-sm font-medium text-gray-900">{order.products}</p>
-                              <div className="flex items-center gap-3 mt-1">
-                                <span className="text-xs text-gray-500">{order.total}</span>
-                                <Badge variant="teal">{order.status}</Badge>
-                              </div>
+                        {clientOrders.map((order: any, i: number) => {
+                          const isOpen = !!expandedOrders[order.id]
+                          return (
+                            <div key={order.id ?? i} className="border-b border-gray-50 last:border-0">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedOrders(prev => ({ ...prev, [order.id]: !prev[order.id] }))}
+                                className="w-full flex gap-4 py-4 text-left hover:bg-gray-50/50 transition-colors -mx-4 px-4"
+                              >
+                                <div className="w-2 h-2 rounded-full bg-brand mt-1.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-400 font-mono mb-0.5">{order.number} · {order.date}</p>
+                                  <p className="text-sm font-medium text-gray-900">{order.products}</p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-xs text-gray-500">{order.total}</span>
+                                    <Badge variant="teal">{order.status}</Badge>
+                                    {order.placedBy && (
+                                      <span className="text-xs text-gray-400">Placed by: {order.placedBy}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {isOpen ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0 mt-1" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0 mt-1" />}
+                              </button>
+
+                              {/* Full order details — products with unit price, shipping, payment method */}
+                              {isOpen && (
+                                <div className="pb-4 pl-6 space-y-3">
+                                  <div className="bg-gray-50 rounded-lg overflow-hidden">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="border-b border-gray-100">
+                                          <th className="text-left px-3 py-2 font-medium text-gray-400 uppercase tracking-wide">Product</th>
+                                          <th className="text-left px-3 py-2 font-medium text-gray-400 uppercase tracking-wide">SKU</th>
+                                          <th className="text-right px-3 py-2 font-medium text-gray-400 uppercase tracking-wide">Qty</th>
+                                          <th className="text-right px-3 py-2 font-medium text-gray-400 uppercase tracking-wide">Unit price</th>
+                                          <th className="text-right px-3 py-2 font-medium text-gray-400 uppercase tracking-wide">Line total</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {(order.lineItems || []).map((item: any, li: number) => (
+                                          <tr key={li} className="border-b border-gray-100 last:border-0">
+                                            <td className="px-3 py-2 text-gray-800">{item.name}</td>
+                                            <td className="px-3 py-2 font-mono text-gray-400">{item.sku || '—'}</td>
+                                            <td className="px-3 py-2 text-right text-gray-600">{item.quantity}</td>
+                                            <td className="px-3 py-2 text-right text-gray-600">${item.unitPrice.toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right font-medium text-gray-900">${item.lineTotal.toFixed(2)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                                    <div>
+                                      <span className="text-gray-400">Shipping method: </span>
+                                      <span className="text-gray-700">{order.shippingMethod || '—'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-400">Shipping cost: </span>
+                                      <span className="text-gray-700">${(order.shippingCost || 0).toFixed(2)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-400">Payment method: </span>
+                                      <span className="text-gray-700">{order.paymentMethod || '—'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-400">Order total: </span>
+                                      <span className="text-gray-900 font-medium">{order.total}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     ) : (
                       <p className="py-6 text-sm text-gray-400 text-center">No orders yet.</p>

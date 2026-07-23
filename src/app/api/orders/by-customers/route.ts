@@ -71,6 +71,15 @@ export async function GET(request: Request) {
       total: parseFloat(o.total || '0'),
       total_formatted: `$${parseFloat(o.total || '0').toLocaleString()}`,
       products: (o.line_items || []).map((item: any) => `${item.name} × ${item.quantity}`).join(', '),
+      lineItems: (o.line_items || []).map((item: any) => ({
+        name: item.name,
+        sku: item.sku || null,
+        quantity: item.quantity,
+        unitPrice: item.quantity > 0 ? parseFloat(item.total || '0') / item.quantity : 0,
+        lineTotal: parseFloat(item.total || '0'),
+      })),
+      placed_by: (o.meta_data || []).find((m: any) => m.key === '_placed_by_rep')?.value || null,
+      payment_method: o.payment_method_title || o.payment_method || null,
     }))
 
     return NextResponse.json(mapped)

@@ -2,7 +2,7 @@
 // File: src/app/approvals/page.tsx
 
 import { useState } from 'react'
-import { usePendingProviders, useProviderActions } from '@/hooks/useData'
+import { usePendingProviders, useProviderActions, useReps } from '@/hooks/useData'
 import { useAuth } from '@/lib/auth-context'
 import { Topbar } from '@/components/layout/Topbar'
 import { Button } from '@/components/ui/Button'
@@ -24,6 +24,7 @@ export default function ApprovalsPage() {
   const router = useRouter()
   const { isRep } = useAuth()
   const { data: providers, loading, error, refetch } = usePendingProviders()
+  const { data: reps } = useReps()
   const { approve, reject, processing } = useProviderActions()
   const [actioned, setActioned] = useState<Record<number, 'approved' | 'rejected'>>({})
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
@@ -98,7 +99,19 @@ export default function ApprovalsPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <Field label="Treatment pillars" value={p.pillars} />
-                          <Field label="Referred by (rep code)" value={p.referal_linkcode} />
+                          <Field
+                            label="Referred by"
+                            value={
+                              p.referal_linkcode
+                                ? (() => {
+                                    const rep = (reps || []).find(
+                                      (r: any) => r.rep_code && r.rep_code.toLowerCase() === p.referal_linkcode.toLowerCase()
+                                    )
+                                    return rep ? rep.name : 'Unknown rep'
+                                  })()
+                                : 'None (unclaimed)'
+                            }
+                          />
                         </div>
                         {p.message && (
                           <div>

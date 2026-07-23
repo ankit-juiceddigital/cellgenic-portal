@@ -2,6 +2,7 @@
 // File: src/app/order/page.tsx
 
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useAuth } from '@/lib/auth-context'
 import { useClients, useProducts, usePlaceOrder } from '@/hooks/useData'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/Card'
@@ -242,6 +243,7 @@ function OrderItemRow({
 // Main page
 // ─────────────────────────────────────────────
 export default function OrderPage() {
+  const { user, isRep, isAdmin, isManager } = useAuth()
   const { data: clients } = useClients()
   const { data: products, loading: productsLoading } = useProducts()
   const { placeOrder, loading, success, error } = usePlaceOrder()
@@ -251,6 +253,22 @@ export default function OrderPage() {
   const [items, setItems] = useState<OrderItem[]>([
     { id: '1', productId: 0, productName: '', quantity: 5 }
   ])
+  // Synchronous guard against double-submission. `loading` state alone
+  // isn't enough — a fast double-click (or double Enter keypress) can
+  // fire handleSubmit twice before React re-renders the disabled button,
+  // which was creating duplicate orders. This ref is checked and set
+  // BEFORE any awaits, so the second call bails out immediately.
+  const isSubmittingRef = useRef(false)
+
+  // Attribution stored on the order so it's clear who actually placed
+  // it — a rep's own name, or "Administrator"/"Sales Manager" when staff
+  // place an order on a client's behalf rather than the client's own
+  // assigned rep.
+  const repAttribution = isAdmin
+    ? 'Administrator'
+    : isManager
+    ? 'Sales Manager'
+    : (user?.name || 'Sales Rep')
 
   const addItem = () => {
     setItems(prev => [
@@ -269,18 +287,28 @@ export default function OrderPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Bail out immediately if a submission is already in flight — see the
+    // comment on isSubmittingRef above for why this can't just rely on
+    // the `loading` state / disabled button alone.
+    if (isSubmittingRef.current) return
     if (!clientId) return
     const validItems = items.filter(i => i.productId > 0 && i.quantity > 0)
     if (validItems.length === 0) return
 
-    // Place orders sequentially — one per product line
-    for (const item of validItems) {
-      await placeOrder({
-        customerId: clientId,
-        productId: item.productId,
-        quantity: item.quantity,
-        shippingMethod: shipping,
-      })
+    isSubmittingRef.current = true
+    try {
+      // Place orders sequentially — one per product line
+      for (const item of validItems) {
+        await placeOrder({
+          customerId: clientId,
+          productId: item.productId,
+          quantity: item.quantity,
+          shippingMethod: shipping,
+          repNote: repAttribution,
+        })
+      }
+    } finally {
+      isSubmittingRef.current = false
     }
   }
 
@@ -289,7 +317,7 @@ export default function OrderPage() {
   if (success) {
     return (
       <>
-        <Topbar title="Place an Order" subtitle="Submit an order on behalf of one of your clients" />
+        <Topbar title="Place an Order" subtitle={`Submit an order on behalf of one of your clients — placing as ${repAttribution}`} />
         <div className="p-4 md:p-7">
           <Card padding className="max-w-md text-center py-8">
             <CheckCircle size={40} className="text-brand mx-auto mb-4" />
@@ -306,7 +334,7 @@ export default function OrderPage() {
 
   return (
     <>
-      <Topbar title="Place an Order" subtitle="Submit an order on behalf of one of your clients" />
+      <Topbar title="Place an Order" subtitle={`Submit an order on behalf of one of your clients — placing as ${repAttribution}`} />
       <div className="p-4 md:p-7">
         <Card padding className="max-w-lg">
           <form onSubmit={handleSubmit} className="space-y-5">

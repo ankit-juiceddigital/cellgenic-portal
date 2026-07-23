@@ -201,7 +201,7 @@ function OrderModal({
 // Main page
 // ─────────────────────────────────────────────
 export default function CommissionsPage() {
-  const { isRep } = useAuth()
+  const { isRep, user } = useAuth()
   const [viewingOrderId, setViewingOrderId] = useState<string | null>(null)
 
   // Extract numeric order ID from strings like "#CG-4421"
@@ -287,6 +287,10 @@ export default function CommissionsPage() {
   const { data: reps, loading, error, refetch } = useReps()
   const { approve, processing } = useApproveCommission()
   const [approved, setApproved] = useState<number[]>([])
+  // Whoever is looking at this screen shouldn't see (or approve) their
+  // own commission entry — same conflict-of-interest reasoning as
+  // excluding yourself from the "Assign to rep" dropdown.
+  const approvableReps = (reps || []).filter((r: any) => r.id !== user?.userId)
 
   return (
     <>
@@ -306,9 +310,9 @@ export default function CommissionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(reps || []).length === 0 ? (
+                  {approvableReps.length === 0 ? (
                     <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">No reps found.</td></tr>
-                  ) : (reps || []).map((rep: any) => (
+                  ) : approvableReps.map((rep: any) => (
                     <tr key={rep.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                       <td className="px-4 py-3 font-medium text-gray-900">{rep.name}</td>
                       <td className="px-4 py-3 text-gray-600">

@@ -38,8 +38,28 @@ function mapOrder(o: any) {
     raw_date: o.date_created,
     status: o.status,
     total: parseFloat(o.total || '0'),
+    // Who actually placed the order (rep name, or "Administrator" /
+    // "Sales Manager" when staff place it on a client's behalf) — set at
+    // order-creation time as `_placed_by_rep` order meta. Falls back to
+    // null when absent (e.g. orders placed directly in wp-admin).
+    placed_by: (o.meta_data || []).find((m: any) => m.key === '_placed_by_rep')?.value || null,
+    payment_method: o.payment_method_title || o.payment_method || null,
+    billing_country: o.billing?.country || null,
     total_formatted: `$${parseFloat(o.total || '0').toLocaleString()}`,
     products: (o.line_items || []).map((item: any) => `${item.name} × ${item.quantity}`).join(', '),
+    // Full breakdown for the click-to-expand order detail view — every
+    // product with quantity + unit price + line total, plus shipping.
+    lineItems: (o.line_items || []).map((item: any) => ({
+      name: item.name,
+      sku: item.sku || null,
+      quantity: item.quantity,
+      unitPrice: item.quantity > 0 ? parseFloat(item.total || '0') / item.quantity : 0,
+      lineTotal: parseFloat(item.total || '0'),
+    })),
+    itemCount: (o.line_items || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0),
+    subtotal: (o.line_items || []).reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || item.total || '0'), 0),
+    shippingMethod: (o.shipping_lines || [])[0]?.method_title || null,
+    shippingCost: (o.shipping_lines || []).reduce((sum: number, s: any) => sum + parseFloat(s.total || '0'), 0),
   }
 }
 

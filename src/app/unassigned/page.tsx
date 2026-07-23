@@ -2,6 +2,7 @@
 // File: src/app/unassigned/page.tsx
 
 import { useState } from 'react'
+import { useAuth } from '@/lib/auth-context'
 import { useAllClients, useReps, useAssignClient, useClientAccess } from '@/hooks/useData'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card } from '@/components/ui/Card'
@@ -11,6 +12,7 @@ import { TableSkeleton, ErrorState } from '@/components/ui/Skeleton'
 import { ShieldOff, ShieldCheck, Trash2 } from 'lucide-react'
 
 export default function UnassignedPage() {
+  const { user } = useAuth()
   const { data: clients, loading, error, refetch } = useAllClients()
   const { data: reps } = useReps()
   const { assign, processing } = useAssignClient()
@@ -21,6 +23,11 @@ export default function UnassignedPage() {
   const [deletedIds, setDeletedIds] = useState<number[]>([])
 
   const unassigned = (clients || []).filter((c: any) => !c.assigned_rep && !assigned.includes(c.id) && !deletedIds.includes(c.id))
+  // Every staff account (sales rep, sales manager, administrator) is
+  // assignable — but not the person currently looking at this screen;
+  // assigning a client to yourself from this dropdown isn't a real
+  // use case and just clutters the list.
+  const assignableReps = (reps || []).filter((r: any) => r.id !== user?.userId)
   const statusFor = (client: any): 'active' | 'deactivated' =>
     statusOverride[client.id] || (client.account_status === 'deactivated' ? 'deactivated' : 'active')
 
@@ -76,7 +83,7 @@ export default function UnassignedPage() {
                           onChange={e => setSelections(prev => ({ ...prev, [client.id]: e.target.value }))}
                         >
                           <option value="">Select rep...</option>
-                          {(reps || []).map((r: any) => (
+                          {assignableReps.filter((r: any) => r.rep_code).map((r: any) => (
                             <option key={r.id} value={r.rep_code}>{r.name}</option>
                           ))}
                         </select>

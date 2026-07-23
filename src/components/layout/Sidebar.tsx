@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import {
   LayoutDashboard, Users, ShoppingCart, Coins, Link2,
-  BarChart3, UserCheck, UserX, Settings, Calculator,
+  BarChart3, UserCheck, UserX, Settings,
   Trophy, ClipboardCheck, LogOut, ClipboardList, Boxes,
 } from 'lucide-react'
 
@@ -27,8 +27,7 @@ const NAV_CONFIG = {
     { icon: Users,           label: 'My Clients',         href: '/clients' },
     { icon: ShoppingCart,    label: 'Place Order',         href: '/order' },
     { icon: ClipboardList,   label: 'My Orders',           href: '/orders' },
-    { icon: ClipboardCheck,  label: 'Provider Approvals',        href: '/approvals' },
-    { icon: Calculator,      label: 'Peptide Calculator',  href: '/calculator' },
+    { icon: ClipboardCheck,  label: 'My Referrals',        href: '/approvals' },
     { icon: Trophy,          label: 'Leaderboard',         href: '/leaderboard' },
     { icon: Coins,           label: 'My Commissions',      href: '/commissions' },
     { icon: Link2,           label: 'My Referral Link',    href: '/referral' },
@@ -53,6 +52,7 @@ const NAV_CONFIG = {
     { icon: UserCheck,       label: 'Sales Reps',         href: '/reps' },
     { icon: UserX,           label: 'Unassigned',         href: '/unassigned' },
     { icon: ClipboardCheck,  label: 'Provider Approvals', href: '/approvals' },
+    { icon: ShoppingCart,    label: 'Place Order',        href: '/order' },
     { icon: ClipboardList,   label: 'Orders',             href: '/orders' },
     { icon: Boxes,           label: 'Inventory',          href: '/inventory' },
     { icon: Coins,           label: 'Commissions',        href: '/commissions' },
@@ -66,7 +66,7 @@ const NAV_CONFIG = {
 // ─────────────────────────────────────────────
 export const ALLOWED_ROUTES: Record<string, string[]> = {
   sales_rep: [
-    '/dashboard', '/clients', '/order', '/orders', '/approvals', '/calculator',
+    '/dashboard', '/clients', '/order', '/orders', '/approvals',
     '/leaderboard', '/commissions', '/referral',
   ],
   sales_manager: [
@@ -75,7 +75,7 @@ export const ALLOWED_ROUTES: Record<string, string[]> = {
   ],
   administrator: [
     '/dashboard', '/clients', '/reps', '/unassigned',
-    '/approvals', '/orders', '/inventory', '/commissions', '/settings',
+    '/approvals', '/order', '/orders', '/inventory', '/commissions', '/settings',
   ],
 }
 

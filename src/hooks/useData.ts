@@ -287,6 +287,7 @@ export function usePlaceOrder() {
     variationId?: number
     quantity: number
     shippingMethod: 'standard' | 'overnight'
+    repNote?: string
   }) => {
     setLoading(true)
     setSuccess(false)
