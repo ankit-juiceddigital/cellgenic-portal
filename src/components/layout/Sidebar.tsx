@@ -42,6 +42,7 @@ const NAV_CONFIG = {
     { icon: ClipboardList,   label: 'Orders',             href: '/orders' },
     { icon: Trophy,          label: 'Leaderboard',        href: '/leaderboard' },
     { icon: Coins,           label: 'Commissions',        href: '/commissions' },
+    { icon: Link2,           label: 'My Referral Link',   href: '/referral' },
   ],
 
   // Administrator — full platform management: providers, clients, reps,
@@ -54,8 +55,10 @@ const NAV_CONFIG = {
     { icon: ClipboardCheck,  label: 'Provider Approvals', href: '/approvals' },
     { icon: ShoppingCart,    label: 'Place Order',        href: '/order' },
     { icon: ClipboardList,   label: 'Orders',             href: '/orders' },
+    { icon: Trophy,          label: 'Leaderboard',        href: '/leaderboard' },
     { icon: Boxes,           label: 'Inventory',          href: '/inventory' },
     { icon: Coins,           label: 'Commissions',        href: '/commissions' },
+    { icon: Link2,           label: 'My Referral Link',   href: '/referral' },
     { icon: Settings,        label: 'Settings',           href: '/settings' },
   ],
 }
@@ -71,11 +74,11 @@ export const ALLOWED_ROUTES: Record<string, string[]> = {
   ],
   sales_manager: [
     '/dashboard', '/clients', '/order', '/reps',
-    '/orders', '/leaderboard', '/commissions',
+    '/orders', '/leaderboard', '/commissions', '/referral',
   ],
   administrator: [
     '/dashboard', '/clients', '/reps', '/unassigned',
-    '/approvals', '/order', '/orders', '/inventory', '/commissions', '/settings',
+    '/approvals', '/order', '/orders', '/leaderboard', '/inventory', '/commissions', '/settings', '/referral',
   ],
 }
 

@@ -21,13 +21,16 @@ function OrderModal({
   orderId: string
   onClose: () => void
 }) {
+  const { user } = useAuth()
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Fetch order when modal mounts
   useState(() => {
-    fetch(`/api/orders/${orderId}`)
+    fetch(`/api/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${user?.token}` },
+    })
       .then(res => res.json())
       .then(data => {
         if (data.error) throw new Error(data.error)

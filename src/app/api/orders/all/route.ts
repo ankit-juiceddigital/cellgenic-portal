@@ -23,10 +23,12 @@
 //    in parallel batches, merged and sorted.
 
 import { NextResponse } from 'next/server'
+import { getWordPressUserDetails } from '@/lib/auth'
 
 const WC_URL = process.env.NEXT_PUBLIC_WC_URL
 const WC_KEY = process.env.WC_CONSUMER_KEY
 const WC_SECRET = process.env.WC_CONSUMER_SECRET
+const WP_URL = process.env.NEXT_PUBLIC_WP_URL
 
 function mapOrder(o: any) {
   return {
@@ -119,9 +121,51 @@ export async function GET(request: Request) {
     )
   }
 
+  // SECURITY: this route used to trust whatever `customers` list (and
+  // `mode=all`) the query string contained, with no check on who was
+  // actually asking. That meant a sales rep could open dev tools and
+  // request ANY customer IDs — or force mode=all — and see orders
+  // outside their own client list. Now every request must carry a valid
+  // Bearer token, and for reps specifically, the customer list is
+  // verified server-side against their OWN clients before anything is
+  // fetched — the query string can no longer be trusted on its own.
+  const authHeader = request.headers.get('authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  }
+
+  let caller: { role: string; repCode?: string | null }
+  try {
+    caller = await getWordPressUserDetails(token)
+  } catch {
+    return NextResponse.json({ error: 'Invalid or expired session.' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
-  const mode = searchParams.get('mode')
-  const customers = searchParams.get('customers')
+  let mode = searchParams.get('mode')
+  let customers = searchParams.get('customers')
+
+  if (caller.role === 'sales_rep') {
+    // Reps can never trigger the unrestricted "every order on the
+    // platform" mode, no matter what the query string says.
+    mode = null
+
+    const myClientsRes = await fetch(`${WP_URL}/wp-json/cellgenic/v1/my-clients`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+    const myClients = myClientsRes.ok ? await myClientsRes.json() : []
+    const myClientIds = new Set((myClients || []).map((c: any) => String(c.id)))
+
+    // Intersect whatever was requested with the rep's ACTUAL clients —
+    // any ID that isn't verifiably theirs is silently dropped rather
+    // than trusted from the query string.
+    const requested = (customers || '').split(',').filter(Boolean)
+    const verified = requested.filter(id => myClientIds.has(id))
+    customers = verified.length > 0 ? verified.join(',') : Array.from(myClientIds).join(',')
+  }
+
   const credentials = Buffer.from(`${WC_KEY}:${WC_SECRET}`).toString('base64')
   const headers = { Authorization: `Basic ${credentials}` }
 

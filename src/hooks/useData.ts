@@ -85,9 +85,10 @@ export function useClients() {
 // CLIENT ORDERS
 // ─────────────────────────────────────────────
 export function useClientOrders(clientId: number) {
+  const { user } = useAuth()
   return useFetch(
-    () => getClientOrders(clientId),
-    [clientId]
+    () => getClientOrders(clientId, user!.token),
+    [clientId, user?.token]
   )
 }
 
@@ -453,25 +454,31 @@ export function useRepAccess() {
 // /api/orders/all/route.ts for why this can't be an unfiltered call.
 // ─────────────────────────────────────────────
 export function useAllOrders(customerIds: number[], unrestricted: boolean = false) {
+  const { user } = useAuth()
   const key = customerIds.slice().sort((a, b) => a - b).join(',')
   return useFetch(async () => {
     // Admins get mode=all — a true, unfiltered "every order on the
     // platform" listing, with the server falling back to the known-client
     // approach automatically if the WC key doesn't permit that. Reps and
-    // managers just use the known-client approach directly.
+    // managers just use the known-client approach directly. The server
+    // independently re-verifies this against the caller's actual role —
+    // this flag is a UX hint, not something the client can use to bypass
+    // scoping.
     if (!unrestricted && !customerIds.length) return { orders: [], usedFallback: false }
 
     const params = new URLSearchParams()
     if (unrestricted) params.set('mode', 'all')
     if (key) params.set('customers', key)
 
-    const res = await fetch(`/api/orders/all?${params.toString()}`)
+    const res = await fetch(`/api/orders/all?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${user?.token}` },
+    })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw new Error(err.error || `Orders API error: ${res.status}`)
     }
     return res.json()
-  }, [key, unrestricted])
+  }, [key, unrestricted, user?.token])
 }
 
 // ─────────────────────────────────────────────
@@ -479,16 +486,19 @@ export function useAllOrders(customerIds: number[], unrestricted: boolean = fals
 // each assigned client's order amount + complete order history.
 // ─────────────────────────────────────────────
 export function useOrdersByCustomers(customerIds: number[]) {
+  const { user } = useAuth()
   const key = customerIds.slice().sort((a, b) => a - b).join(',')
   return useFetch(async () => {
     if (!customerIds.length) return []
-    const res = await fetch(`/api/orders/by-customers?customers=${key}`)
+    const res = await fetch(`/api/orders/by-customers?customers=${key}`, {
+      headers: { Authorization: `Bearer ${user?.token}` },
+    })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw new Error(err.error || `Orders API error: ${res.status}`)
     }
     return res.json()
-  }, [key])
+  }, [key, user?.token])
 }
 
 

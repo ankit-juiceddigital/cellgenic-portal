@@ -16,11 +16,11 @@ const ALLOWED_ROUTES: Record<string, string[]> = {
   ],
   sales_manager: [
     '/dashboard', '/clients', '/order', '/reps',
-    '/orders', '/leaderboard', '/commissions',
+    '/orders', '/leaderboard', '/commissions', '/referral',
   ],
   administrator: [
     '/dashboard', '/clients', '/reps', '/unassigned',
-    '/approvals', '/order', '/orders', '/inventory', '/commissions', '/settings',
+    '/approvals', '/order', '/orders', '/leaderboard', '/inventory', '/commissions', '/settings', '/referral',
   ],
 }
 

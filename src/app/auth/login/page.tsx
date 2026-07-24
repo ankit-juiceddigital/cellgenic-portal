@@ -4,10 +4,10 @@
 
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { loginWithWordPress } from '@/lib/auth'
+import { loginWithWordPress, type AuthUser } from '@/lib/auth'
 import { useAuth } from '@/lib/auth-context'
 import Image from 'next/image'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck, Users } from 'lucide-react'
 
 function LoginForm() {
   const router = useRouter()
@@ -19,6 +19,21 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // Holds the authenticated-but-not-yet-finalized user while we wait for
+  // them to pick Administrator or Sales Manager. Set for any
+  // administrator login — see auth.ts for why this doesn't require the
+  // account to hold a second WP role.
+  const [pendingRoleChoice, setPendingRoleChoice] = useState<AuthUser | null>(null)
+
+  const finishLogin = (user: AuthUser) => {
+    login(user)
+    const redirect = searchParams.get('redirect')
+    if (redirect && redirect !== '/auth/login') {
+      router.push(redirect)
+    } else {
+      router.push('/dashboard')
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,18 +41,86 @@ function LoginForm() {
     setLoading(true)
     try {
       const user = await loginWithWordPress(username, password)
-      login(user)
-      const redirect = searchParams.get('redirect')
-      if (redirect && redirect !== '/auth/login') {
-        router.push(redirect)
+      if (user.availableRoles && user.availableRoles.length > 1) {
+        // Administrator + Sales Manager on the same account — ask which
+        // one they want for this session instead of silently defaulting.
+        setPendingRoleChoice(user)
       } else {
-        router.push('/dashboard')
+        finishLogin(user)
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (pendingRoleChoice) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-4 py-8"
+        style={{ background: '#f5f5f3', fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+      >
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <Image
+              src="https://cellgenic.com/wp-content/uploads/2026/05/cellgenic_official_logo_black.png"
+              alt="CellGenic"
+              width={140}
+              height={36}
+              style={{ objectFit: 'contain', display: 'inline-block' }}
+              unoptimized
+            />
+          </div>
+          <div className="bg-white p-8" style={{ borderRadius: 20, border: '0.5px solid #e8e8e4' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0a0a0a', letterSpacing: '-0.02em', marginBottom: 4, textAlign: 'center' }}>
+              Continue as…
+            </h2>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 24, lineHeight: 1.5, textAlign: 'center' }}>
+              Choose which functionality to use for this session.
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => finishLogin({ ...pendingRoleChoice, role: 'administrator' })}
+                className="w-full flex items-center gap-3 text-left transition-colors"
+                style={{ padding: '14px 16px', border: '1px solid #e8e8e4', borderRadius: 12, background: '#fff', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#0F6E56')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#e8e8e4')}
+              >
+                <span style={{ width: 36, height: 36, borderRadius: 10, background: '#f0f9f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ShieldCheck size={18} color="#0F6E56" />
+                </span>
+                <span>
+                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>Administrator</span>
+                  <span style={{ display: 'block', fontSize: 12, color: '#999' }}>Full platform management</span>
+                </span>
+              </button>
+              <button
+                onClick={() => finishLogin({ ...pendingRoleChoice, role: 'sales_manager' })}
+                className="w-full flex items-center gap-3 text-left transition-colors"
+                style={{ padding: '14px 16px', border: '1px solid #e8e8e4', borderRadius: 12, background: '#fff', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#0F6E56')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#e8e8e4')}
+              >
+                <span style={{ width: 36, height: 36, borderRadius: 10, background: '#f0f9f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Users size={18} color="#0F6E56" />
+                </span>
+                <span>
+                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>Sales Manager</span>
+                  <span style={{ display: 'block', fontSize: 12, color: '#999' }}>Rep performance & client oversight</span>
+                </span>
+              </button>
+            </div>
+            <button
+              onClick={() => setPendingRoleChoice(null)}
+              style={{ marginTop: 16, width: '100%', background: 'none', border: 'none', fontSize: 13, color: '#999', cursor: 'pointer' }}
+            >
+              ← Back to sign in
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

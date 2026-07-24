@@ -1,11 +1,23 @@
 // File: src/app/api/orders/[id]/route.ts
 // Fetches full details of a single WooCommerce order by ID.
 // Server-side only — WC credentials never reach the browser.
+//
+// SECURITY: this route previously had NO auth check at all — anyone who
+// discovered/guessed an order ID could view its full details (customer
+// name, email, phone, address, line items) regardless of role. Now it:
+//   1. Requires a valid Bearer token (same WP JWT used everywhere else).
+//   2. For sales reps specifically, verifies the order actually belongs
+//      to one of THEIR OWN clients before returning anything — a rep
+//      can no longer view another rep's order by changing the ID in the
+//      request. Managers and admins are unrestricted, same as elsewhere.
 
 import { NextResponse } from 'next/server'
+import { getWordPressUserDetails } from '@/lib/auth'
+
+const WP_URL = process.env.NEXT_PUBLIC_WP_URL
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const WC_URL = process.env.NEXT_PUBLIC_WC_URL
@@ -17,6 +29,20 @@ export async function GET(
       { error: 'WooCommerce credentials not configured.' },
       { status: 500 }
     )
+  }
+
+  // Require the same Bearer token used for every other authenticated call.
+  const authHeader = request.headers.get('authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  }
+
+  let caller: { role: string; repCode?: string | null }
+  try {
+    caller = await getWordPressUserDetails(token)
+  } catch {
+    return NextResponse.json({ error: 'Invalid or expired session.' }, { status: 401 })
   }
 
   // `await` on a plain object just resolves immediately, so this is safe
@@ -43,6 +69,24 @@ export async function GET(
     }
 
     const order = await res.json()
+
+    // Ownership check — reps only. Managers/admins can view any order,
+    // same as they can see any client.
+    if (caller.role === 'sales_rep') {
+      const myClientsRes = await fetch(`${WP_URL}/wp-json/cellgenic/v1/my-clients`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      })
+      const myClients = myClientsRes.ok ? await myClientsRes.json() : []
+      const myClientIds = (myClients || []).map((c: any) => c.id)
+
+      if (!myClientIds.includes(order.customer_id)) {
+        return NextResponse.json(
+          { error: 'You do not have access to this order.' },
+          { status: 403 }
+        )
+      }
+    }
 
     // Return a clean, formatted response
     return NextResponse.json({

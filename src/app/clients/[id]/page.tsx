@@ -4,8 +4,9 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { useClientOrders, useNotes, usePlaceOrder, useCustomer, useConsentStatus, useClients } from '@/hooks/useData'
+import { useClientOrders, useNotes, useCustomer, useConsentStatus, useClients } from '@/hooks/useData'
 import { useProducts } from '@/hooks/useData'
+import { MultiProductOrderForm } from '@/components/MultiProductOrder'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card, MetricCard } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -144,7 +145,7 @@ const noteIcon = (type: string) => {
 }
 
 export default function ClientDetailPage({ params }: { params: { id: string } | Promise<{ id: string }> }) {
-  const { isRep } = useAuth()
+  const { isRep, isManager, isAdmin } = useAuth()
   // `params` is a plain object on Next 14 but a Promise on Next 15+ ("async
   // dynamic APIs"). Handle both so this doesn't silently resolve to
   // `undefined` -> NaN client IDs -> failed customer/notes requests.
@@ -166,34 +167,33 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
   const isActive = clientRecord ? !clientRecord.at_risk : true
   const country = clientRecord?.country || customer?.country || null
   const { data: products } = useProducts()
-  const { placeOrder, loading: orderLoading, success: orderSuccess, error: orderError } = usePlaceOrder()
 
   const [noteText, setNoteText] = useState('')
   const [expandedOrders, setExpandedOrders] = useState<Record<number, boolean>>({})
   const [noteType, setNoteType] = useState<Note['type']>('note')
   const [saving, setSaving] = useState(false)
+  const [noteError, setNoteError] = useState<string | null>(null)
 
-  // Order form state
-  const [selectedProduct, setSelectedProduct] = useState<number>(0)
-  const [quantity, setQuantity] = useState(5)
-  const [shipping, setShipping] = useState<'standard' | 'overnight'>('standard')
+  // Anyone who can place orders elsewhere (rep, manager, admin) can also
+  // place one right here on the client's own page.
+  const canPlaceOrder = isRep || isManager || isAdmin
 
   const handleAddNote = async () => {
     if (!noteText.trim()) return
     setSaving(true)
-    await addNote(noteText.trim(), noteType)
-    setNoteText('')
-    setSaving(false)
-  }
-
-  const handlePlaceOrder = async () => {
-    if (!selectedProduct) return
-    await placeOrder({
-      customerId: clientId,
-      productId: selectedProduct,
-      quantity,
-      shippingMethod: shipping,
-    })
+    setNoteError(null)
+    try {
+      await addNote(noteText.trim(), noteType)
+      setNoteText('')
+    } catch (err: any) {
+      // BUG FIX: previously there was no catch here at all — if the save
+      // failed (which it always did, since the backend endpoint didn't
+      // exist), the thrown error skipped straight past `setSaving(false)`
+      // and the button was stuck on "Saving..." forever with no feedback.
+      setNoteError(err.message || 'Failed to save note. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const tabs = [
@@ -211,7 +211,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
         </span>
       ),
     },
-    ...(isRep ? [{ id: 'place', label: 'Place order' }] : []),
+    ...(canPlaceOrder ? [{ id: 'place', label: 'Place order' }] : []),
   ]
 
   return (
@@ -344,6 +344,11 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
                         value={noteText}
                         onChange={e => setNoteText(e.target.value)}
                       />
+                      {noteError && (
+                        <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-600">
+                          {noteError}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 mt-2">
                         <select
                           value={noteType}
@@ -393,68 +398,13 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
                   </div>
                 )}
 
-                {/* Place order */}
-                {active === 'place' && isRep && (
-                  <div className="p-4 max-w-md space-y-4">
-                    {orderSuccess ? (
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-                        <CheckCircle size={18} className="text-green-600 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-green-700">Order placed successfully</p>
-                          <p className="text-xs text-green-600 mt-0.5">The client will receive a confirmation email.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {orderError && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-600">
-                            {orderError}
-                          </div>
-                        )}
-                        <div>
-                          <label className="text-xs text-gray-400 mb-1 block">Product</label>
-                          <select
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand"
-                            value={selectedProduct}
-                            onChange={e => setSelectedProduct(Number(e.target.value))}
-                          >
-                            <option value={0}>Select a product...</option>
-                            {(products || []).map((p: any) => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-400 mb-1 block">Quantity</label>
-                          <input
-                            type="number"
-                            min={1}
-                            value={quantity}
-                            onChange={e => setQuantity(Number(e.target.value))}
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-400 mb-1 block">Shipping</label>
-                          <select
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand"
-                            value={shipping}
-                            onChange={e => setShipping(e.target.value as 'standard' | 'overnight')}
-                          >
-                            <option value="standard">Standard — $60</option>
-                            <option value="overnight">Overnight (dry ice) — $250</option>
-                          </select>
-                        </div>
-                        <Button
-                          variant="primary"
-                          className="w-full justify-center"
-                          onClick={handlePlaceOrder}
-                          disabled={orderLoading || !selectedProduct}
-                        >
-                          {orderLoading ? 'Placing order...' : 'Submit order'}
-                        </Button>
-                      </>
-                    )}
+                {/* Place order — same multi-product form as the standalone Place Order page */}
+                {active === 'place' && canPlaceOrder && (
+                  <div className="p-4 max-w-md">
+                    <MultiProductOrderForm
+                      products={products || []}
+                      fixedClientId={clientId}
+                    />
                   </div>
                 )}
               </>

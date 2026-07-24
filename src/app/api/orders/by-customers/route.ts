@@ -13,6 +13,7 @@
 // merges results, rather than a single multi-customer request.
 
 import { NextResponse } from 'next/server'
+import { getWordPressUserDetails } from '@/lib/auth'
 
 const WC_URL = process.env.NEXT_PUBLIC_WC_URL
 const WC_KEY = process.env.WC_CONSUMER_KEY
@@ -38,6 +39,29 @@ export async function GET(request: Request) {
       { error: 'WooCommerce credentials not configured.' },
       { status: 500 }
     )
+  }
+
+  // SECURITY: this route powers the manager/admin-only Rep Detail page
+  // and previously had no auth check — anyone could call it directly
+  // with arbitrary customer IDs and see full order data for any client.
+  // It requires a valid token now, and sales reps are blocked outright
+  // (they have no legitimate use for this endpoint — the page it serves
+  // isn't even in their nav).
+  const authHeader = request.headers.get('authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  }
+
+  let caller: { role: string }
+  try {
+    caller = await getWordPressUserDetails(token)
+  } catch {
+    return NextResponse.json({ error: 'Invalid or expired session.' }, { status: 401 })
+  }
+
+  if (caller.role === 'sales_rep') {
+    return NextResponse.json({ error: 'You do not have access to this data.' }, { status: 403 })
   }
 
   const { searchParams } = new URL(request.url)

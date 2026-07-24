@@ -73,30 +73,23 @@ export async function getProductVariations(productId: number) {
 // ─────────────────────────────────────────────
 // ORDERS
 // ─────────────────────────────────────────────
-export async function getClientOrders(customerId: number) {
-  const orders = await wcFetch(`/orders?customer=${customerId}&per_page=50&orderby=date&order=desc`)
-  return orders.map((o: any) => ({
-    id: o.id,
-    number: `#CG-${o.number}`,
-    date: new Date(o.date_created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    status: o.status,
-    total: `$${parseFloat(o.total).toLocaleString()}`,
-    products: o.line_items.map((item: any) => `${item.name} × ${item.quantity}`).join(', '),
-    // Full breakdown — used by the expandable order-details view so
-    // "Order History" actually shows everything, not just a summary line.
-    lineItems: o.line_items.map((item: any) => ({
-      name: item.name,
-      quantity: item.quantity,
-      unitPrice: item.quantity > 0 ? (parseFloat(item.total) / item.quantity) : 0,
-      lineTotal: parseFloat(item.total),
-      sku: item.sku || null,
-    })),
-    subtotal: o.line_items.reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || item.total || '0'), 0),
-    shippingMethod: (o.shipping_lines || [])[0]?.method_title || null,
-    shippingCost: (o.shipping_lines || []).reduce((sum: number, s: any) => sum + parseFloat(s.total || '0'), 0),
-    paymentMethod: o.payment_method_title || o.payment_method || null,
-    placedBy: (o.meta_data || []).find((m: any) => m.key === '_placed_by_rep')?.value || null,
-  }))
+export async function getClientOrders(customerId: number, token: string) {
+  // IMPORTANT: this goes through /api/orders/client/[customerId] — a
+  // same-origin, server-side route — rather than calling WooCommerce
+  // directly. wcFetch() below builds Basic Auth from WC_CONSUMER_KEY/
+  // SECRET, and this whole module gets bundled into the browser when
+  // imported by a 'use client' page (which useClientOrders is), so a
+  // direct wcFetch call here would run IN THE BROWSER with no server-side
+  // enforcement at all — the API route is what actually checks a rep
+  // only sees their own clients' orders.
+  const res = await fetch(`/api/orders/client/${customerId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.message || `Orders API error: ${res.status}`)
+  }
+  return res.json()
 }
 
 export async function getRepRecentOrders(customerIds: number[]) {

@@ -19,12 +19,24 @@ export default function ReferralPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const noRepCodeYet = error && /no rep code/i.test(error)
+
   return (
     <>
       <Topbar title="My Referral Link" subtitle="Share your unique link to register new providers" />
       <div className="p-4 md:p-7">
         {loading && <TableSkeleton rows={3} />}
-        {error && <ErrorState message={error} onRetry={refetch} />}
+        {noRepCodeYet && (
+          <Card padding className="max-w-lg">
+            <h2 className="text-sm font-semibold text-gray-900 mb-1">No referral code set yet</h2>
+            <p className="text-sm text-gray-400">
+              Your account doesn't have a personal referral code yet, so there's no link to share.
+              Ask an administrator to set one for you under <strong>Sales Reps → Edit</strong> — once
+              it's set, your referral link and registration activity will show up here.
+            </p>
+          </Card>
+        )}
+        {error && !noRepCodeYet && <ErrorState message={error} onRetry={refetch} />}
         {!loading && !error && data && (
           <div className="max-w-lg space-y-5">
             {/* Referral URL card */}

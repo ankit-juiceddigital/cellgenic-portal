@@ -11,6 +11,10 @@ export interface AuthUser {
   initials: string
   role: 'sales_rep' | 'sales_manager' | 'administrator'
   repCode?: string
+  // Only set when the WordPress account holds BOTH 'administrator' and
+  // 'sales_manager' roles — lets the login screen ask which one to use
+  // for this session, rather than always defaulting to Administrator.
+  availableRoles?: ('administrator' | 'sales_manager')[]
 }
 
 // ─────────────────────────────────────────────
@@ -34,6 +38,15 @@ export async function loginWithWordPress(
   const data = await res.json()
   const userDetails = await getWordPressUserDetails(data.token)
 
+  // WordPress's default Users screen only lets you assign ONE role per
+  // account, so requiring the account to literally hold both
+  // 'administrator' and 'sales_manager' would never trigger for anyone.
+  // Instead: any administrator gets asked which functionality to use for
+  // this session — Administrator (full platform) or Sales Manager (rep
+  // performance & client oversight) — since admins should be able to use
+  // either view without needing a second WP role assigned.
+  const isAdministrator = userDetails.roles.includes('administrator')
+
   return {
     token: data.token,
     userId: userDetails.id,
@@ -42,13 +55,14 @@ export async function loginWithWordPress(
     initials: getInitials(userDetails.name),
     role: userDetails.role,
     repCode: userDetails.repCode,
+    availableRoles: isAdministrator ? ['administrator', 'sales_manager'] : undefined,
   }
 }
 
 // ─────────────────────────────────────────────
 // GET USER DETAILS FROM WP
 // ─────────────────────────────────────────────
-async function getWordPressUserDetails(token: string) {
+export async function getWordPressUserDetails(token: string) {
   const res = await fetch(`${WP_URL}/wp-json/wp/v2/users/me?context=edit`, {
     headers: { 'Authorization': `Bearer ${token}` },
   })
@@ -67,6 +81,7 @@ async function getWordPressUserDetails(token: string) {
     email: user.email,
     name: user.name,
     role,
+    roles: (user.roles || []) as string[],
     repCode: user.meta?.cellgenic_rep_code || null,
   }
 }

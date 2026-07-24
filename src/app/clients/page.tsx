@@ -15,7 +15,11 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
 export default function ClientsPage() {
-  const { isRep, isAdmin } = useAuth()
+  const { isRep, isAdmin, isManager } = useAuth()
+  // Deactivate/Reactivate/Delete are now available to reps and managers
+  // too, not just admins — the backend enforces that a rep can only act
+  // on their OWN clients regardless of what this flag allows client-side.
+  const canManageAccess = isAdmin || isRep || isManager
   const { data: clients, loading, error, refetch } = useClients()
   const [query, setQuery] = useState('')
   const searchParams = useSearchParams()
@@ -24,7 +28,7 @@ export default function ClientsPage() {
   const { deactivate, reactivate, remove, processing, error: accessError } = useClientAccess()
   // Optimistic local overlay so the row updates immediately without
   // waiting on a full refetch of the clients list.
-  const [statusOverride, setStatusOverride] = useState<Record<number, 'active' | 'deactivated'>>({})
+  const [statusOverride, setStatusOverride] = useState<Record<number, 'pending' | 'active' | 'deactivated'>>({})
   // Deleted clients disappear from the list entirely (unlike deactivate,
   // which just changes status) — tracked locally until the next refetch.
   const [deletedIds, setDeletedIds] = useState<number[]>([])
@@ -39,8 +43,12 @@ export default function ClientsPage() {
     return matchesQuery && matchesRisk
   })
 
-  const statusFor = (client: any): 'active' | 'deactivated' =>
-    statusOverride[client.id] || (client.account_status === 'deactivated' ? 'deactivated' : 'active')
+  const statusFor = (client: any): 'pending' | 'active' | 'deactivated' => {
+    if (statusOverride[client.id]) return statusOverride[client.id]
+    if (client.account_status === 'awaiting_admin_review') return 'pending'
+    if (client.account_status === 'deactivated') return 'deactivated'
+    return 'active'
+  }
 
   return (
     <>
@@ -98,7 +106,7 @@ export default function ClientsPage() {
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Total orders</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Roles</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Status</th>
-                    {isAdmin && <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Access</th>}
+                    {canManageAccess && <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Access</th>}
                     <th className="px-4 py-2.5"></th>
                   </tr>
                 </thead>
@@ -132,13 +140,19 @@ export default function ClientsPage() {
                       <td className="px-4 py-3 text-gray-600">{client.total_orders}</td>
                       <td className="px-4 py-3 text-gray-600">{client.role}</td>
                       <td className="px-4 py-3">
-                        <Badge variant={client.at_risk ? 'amber' : 'teal'}>
-                          {client.at_risk ? 'At risk' : 'Active'}
-                        </Badge>
+                        {statusFor(client) === 'pending' ? (
+                          <Badge variant="blue">Pending approval</Badge>
+                        ) : (
+                          <Badge variant={client.at_risk ? 'amber' : 'teal'}>
+                            {client.at_risk ? 'At risk' : 'Active'}
+                          </Badge>
+                        )}
                       </td>
-                      {isAdmin && (
+                      {canManageAccess && (
                         <td className="px-4 py-3">
-                          {statusFor(client) === 'deactivated' ? (
+                          {statusFor(client) === 'pending' ? (
+                            <Badge variant="blue">Pending</Badge>
+                          ) : statusFor(client) === 'deactivated' ? (
                             <Badge variant="red">Deactivated</Badge>
                           ) : (
                             <Badge variant="green">Active</Badge>
@@ -150,7 +164,14 @@ export default function ClientsPage() {
                           <Link href={`/clients/${client.id}`}>
                             <Button size="sm">View</Button>
                           </Link>
-                          {isAdmin && (
+                          {canManageAccess && statusFor(client) === 'pending' && (
+                            <Link href="/approvals">
+                              <Button size="sm" className="border-blue-200 text-blue-600 hover:bg-blue-50">
+                                Review in Approvals
+                              </Button>
+                            </Link>
+                          )}
+                          {canManageAccess && statusFor(client) !== 'pending' && (
                             statusFor(client) === 'deactivated' ? (
                               <Button
                                 size="sm"
@@ -175,7 +196,7 @@ export default function ClientsPage() {
                               </Button>
                             )
                           )}
-                          {isAdmin && (
+                          {canManageAccess && statusFor(client) !== 'pending' && (
                             <Button
                               size="sm"
                               className="border-red-300 text-red-700 hover:bg-red-50"
