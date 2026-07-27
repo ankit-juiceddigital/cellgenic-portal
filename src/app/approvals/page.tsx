@@ -86,6 +86,7 @@ export default function ApprovalsPage() {
                       <Field label="Provider role" value={p.role} />
                       <Field label="Years of experience" value={p.years} />
                       <Field label="Country" value={p.country} />
+                      <Field label="State" value={p.state} />
                       <Field label="City" value={p.city} />
                     </div>
 
