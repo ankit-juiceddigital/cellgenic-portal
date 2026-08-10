@@ -233,6 +233,9 @@ export async function rejectProvider(token: string, userId: number) {
   })
 }
 
+export async function getVipClients(token: string) {
+  return cgFetch('/vip-clients', token)
+}
 
 // ─────────────────────────────────────────────
 // SALES REPS (manager/admin)

@@ -164,9 +164,9 @@ export default function OrdersPage() {
             <Button size="sm" onClick={() => exportToCsv(filtered, clientMap)}>
               <Download size={13} /> Export
             </Button>
-            <Link href="/order">
+            {/*<Link href="/order">
               <Button variant="primary" size="sm"><Plus size={13} /> New sales order</Button>
-            </Link>
+            </Link>*/}
           </div>
         }
       />

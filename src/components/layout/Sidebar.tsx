@@ -25,6 +25,7 @@ const NAV_CONFIG = {
   sales_rep: [
     { icon: LayoutDashboard, label: 'Dashboard',          href: '/dashboard' },
     { icon: Users,           label: 'My Clients',         href: '/clients' },
+    { icon: Users, label: 'VIP Clients', href: '/clients/vip' },
     //{ icon: ShoppingCart,    label: 'Place Order',         href: '/order' },
     { icon: ClipboardList,   label: 'My Orders',           href: '/orders' },
     { icon: ClipboardCheck,  label: 'My Referrals',        href: '/approvals' },
@@ -37,6 +38,7 @@ const NAV_CONFIG = {
   sales_manager: [
     { icon: LayoutDashboard, label: 'Overview',           href: '/dashboard' },
     { icon: Users,           label: 'All Clients',        href: '/clients' },
+    { icon: Users, label: 'VIP Clients', href: '/clients/vip' },
     //{ icon: ShoppingCart,    label: 'Place Order',        href: '/order' },
     { icon: BarChart3,       label: 'Rep Performance',    href: '/reps' },
     { icon: ClipboardList,   label: 'Orders',             href: '/orders' },
@@ -50,6 +52,7 @@ const NAV_CONFIG = {
   administrator: [
     { icon: LayoutDashboard, label: 'Platform Overview',  href: '/dashboard' },
     { icon: Users,           label: 'All Clients',        href: '/clients' },
+    { icon: Users, label: 'VIP Clients', href: '/clients/vip' },
     { icon: UserCheck,       label: 'Sales Reps',         href: '/reps' },
     { icon: UserX,           label: 'Unassigned',         href: '/unassigned' },
     { icon: ClipboardCheck,  label: 'Provider Approvals', href: '/approvals' },
@@ -69,15 +72,15 @@ const NAV_CONFIG = {
 // ─────────────────────────────────────────────
 export const ALLOWED_ROUTES: Record<string, string[]> = {
   sales_rep: [
-    '/dashboard', '/clients', '/order', '/orders', '/approvals',
+    '/dashboard', '/clients', '/clients/vip', '/order', '/orders', '/approvals',
     '/leaderboard', '/commissions', '/referral',
   ],
   sales_manager: [
-    '/dashboard', '/clients', '/order', '/reps',
+    '/dashboard', '/clients', '/clients/vip', '/order', '/reps',
     '/orders', '/leaderboard', '/commissions', '/referral',
   ],
   administrator: [
-    '/dashboard', '/clients', '/reps', '/unassigned',
+    '/dashboard', '/clients', '/clients/vip', '/reps', '/unassigned',
     '/approvals', '/order', '/orders', '/leaderboard', '/inventory', '/commissions', '/settings', '/referral',
   ],
 }
@@ -144,10 +147,15 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
         {/* Nav items — only shows items for this user's role */}
         <nav className="flex-1 min-h-0 py-3 overflow-y-auto">
           {navItems.map((item) => {
-            const Icon = item.icon
-            const active =
-              pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href))
+         
+const activeHref = navItems
+  .map(i => i.href)
+  .filter(href => pathname === href || pathname.startsWith(href + '/'))
+  .sort((a, b) => b.length - a.length)[0]
+
+// ...inside navItems.map((item) => { ... }):
+const Icon = item.icon
+const active = item.href === activeHref
 
             return (
               <Link

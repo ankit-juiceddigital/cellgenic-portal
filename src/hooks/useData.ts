@@ -23,6 +23,7 @@ import {
   reactivateClient,
   deleteClient,
   deleteRep,
+  getVipClients
 } from '@/lib/woocommerce'
 import { getNotes, saveNote } from '@/lib/notes'
 import type { Note } from '@/types'
@@ -573,6 +574,14 @@ export function useMyReferralStats() {
   const { user } = useAuth()
   return useFetch(
     () => getMyReferralStats(user!.token),
+    [user?.token]
+  )
+}
+
+export function useVipClients() {
+  const { user } = useAuth()
+  return useFetch(
+    () => getVipClients(user!.token),
     [user?.token]
   )
 }
