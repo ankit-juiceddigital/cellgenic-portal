@@ -7,6 +7,8 @@ import {
   getClientOrders,
   getMyClients,
   getAllClients,
+  getClientDetails,
+  updateClientDetails,
   getPendingProviders,
   getAllReps,
   getLeaderboard,
@@ -99,17 +101,32 @@ export function useClientOrders(clientId: number) {
 // consent buttons on the client detail page.
 // ─────────────────────────────────────────────
 export function useCustomer(clientId: number) {
+  const { user } = useAuth()
   return useFetch(
-    async () => {
-      const res = await fetch(`/api/customers/${clientId}`)
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || `Customer API error: ${res.status}`)
-      }
-      return res.json()
-    },
-    [clientId]
+    () => getClientDetails(user!.token, clientId),
+    [clientId, user?.token]
   )
+}
+
+export function useUpdateCustomer() {
+  const { user } = useAuth()
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async (clientId: number, data: any) => {
+    setSaving(true)
+    setError(null)
+    try {
+      return await updateClientDetails(user!.token, clientId, data)
+    } catch (err: any) {
+      setError(err.message || 'Failed to update client information.')
+      throw err
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return { save, saving, error }
 }
 
 

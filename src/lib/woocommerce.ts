@@ -160,6 +160,18 @@ export async function getAllClients(token: string) {
   return cgFetch('/all-clients', token)
 }
 
+
+export async function getClientDetails(token: string, customerId: number) {
+  return cgFetch(`/client-details/${customerId}`, token)
+}
+
+export async function updateClientDetails(token: string, customerId: number, data: any) {
+  return cgFetch(`/client-details/${customerId}`, token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
 export async function getUnassignedClients(token: string) {
   return cgFetch('/all-clients', token).then((clients: any[]) =>
     clients.filter(c => !c.assigned_rep_code)

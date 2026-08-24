@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { TableSkeleton, ErrorState } from '@/components/ui/Skeleton'
-import { Search, Link2, ShieldOff, ShieldCheck, Trash2 } from 'lucide-react'
+import { Search, Link2, ShieldOff, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
@@ -25,18 +25,15 @@ export default function ClientsPage() {
   const searchParams = useSearchParams()
   // Supports drilling in from a dashboard metric, e.g. /clients?filter=at-risk
   const [onlyAtRisk, setOnlyAtRisk] = useState(searchParams.get('filter') === 'at-risk')
-  const { deactivate, reactivate, remove, processing, error: accessError } = useClientAccess()
+  const { deactivate, reactivate, processing, error: accessError } = useClientAccess()
   // Optimistic local overlay so the row updates immediately without
   // waiting on a full refetch of the clients list.
   const [statusOverride, setStatusOverride] = useState<Record<number, 'pending' | 'active' | 'deactivated'>>({})
-  // Deleted clients disappear from the list entirely (unlike deactivate,
-  // which just changes status) — tracked locally until the next refetch.
-  const [deletedIds, setDeletedIds] = useState<number[]>([])
-
   const filtered = (clients || []).filter((c: any) => {
-    if (deletedIds.includes(c.id)) return false
     const matchesQuery =
       c.name?.toLowerCase().includes(query.toLowerCase()) ||
+      c.email?.toLowerCase().includes(query.toLowerCase()) ||
+      c.phone?.toLowerCase().includes(query.toLowerCase()) ||
       c.clinic?.toLowerCase().includes(query.toLowerCase()) ||
       c.country?.toLowerCase().includes(query.toLowerCase())
     const matchesRisk = !onlyAtRisk || c.at_risk
@@ -99,13 +96,14 @@ export default function ClientsPage() {
                 <thead>
                   <tr className="border-b border-gray-100">
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Provider</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Email</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Phone</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Country</th>
                     {!isRep && <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Assigned rep</th>}
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Last order</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Days since</th>
                     <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Total orders</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Roles</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Status</th>
+                    {/* Role and Status columns intentionally hidden per dashboard requirements. */}
                     {canManageAccess && <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Access</th>}
                     <th className="px-4 py-2.5"></th>
                   </tr>
@@ -113,16 +111,20 @@ export default function ClientsPage() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">
+                      <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-400">
                         {query ? 'No clients match your search.' : onlyAtRisk ? 'No at-risk clients right now.' : 'No clients found.'}
                       </td>
                     </tr>
                   ) : filtered.map((client: any) => (
                     <tr key={client.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{client.name}</p>
+                        <Link href={`/clients/${client.id}`} className="font-medium text-gray-900 hover:text-brand hover:underline">
+                          {client.name}
+                        </Link>
                         <p className="text-xs text-gray-400">{client.clinic}</p>
                       </td>
+                      <td className="px-4 py-3 text-gray-600 text-xs">{client.email || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{client.phone || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{client.country}</td>
                       {!isRep && (
                         <td className="px-4 py-3">
@@ -138,16 +140,7 @@ export default function ClientsPage() {
                         ) : <span className="text-gray-400 text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3 text-gray-600">{client.total_orders}</td>
-                      <td className="px-4 py-3 text-gray-600">{client.role}</td>
-                      <td className="px-4 py-3">
-                        {statusFor(client) === 'pending' ? (
-                          <Badge variant="blue">Pending approval</Badge>
-                        ) : (
-                          <Badge variant={client.at_risk ? 'amber' : 'teal'}>
-                            {client.at_risk ? 'At risk' : 'Active'}
-                          </Badge>
-                        )}
-                      </td>
+                      {/* Role and Status cells intentionally hidden. */}
                       {canManageAccess && (
                         <td className="px-4 py-3">
                           {statusFor(client) === 'pending' ? (
@@ -196,26 +189,7 @@ export default function ClientsPage() {
                               </Button>
                             )
                           )}
-                          {canManageAccess && statusFor(client) !== 'pending' && (
-                            <Button
-                              size="sm"
-                              className="border-red-300 text-red-700 hover:bg-red-50"
-                              disabled={processing === client.id}
-                              onClick={() => {
-                                const typed = window.prompt(
-                                  `This permanently deletes ${client.name}'s account and ALL of their order history. This cannot be undone.\n\nType the client's name exactly to confirm:\n"${client.name}"`
-                                )
-                                if (typed === null) return
-                                if (typed === client.name) {
-                                  remove(client.id, () => setDeletedIds(prev => [...prev, client.id]))
-                                } else {
-                                  alert('Name did not match — nothing was deleted.')
-                                }
-                              }}
-                            >
-                              <Trash2 size={13} /> {processing === client.id ? 'Deleting...' : 'Delete'}
-                            </Button>
-                          )}
+                          {/* Permanent Delete button intentionally hidden from All Clients. */}
                         </div>
                       </td>
                     </tr>
