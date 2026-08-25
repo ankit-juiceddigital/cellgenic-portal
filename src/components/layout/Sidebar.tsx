@@ -86,7 +86,7 @@ export const ALLOWED_ROUTES: Record<string, string[]> = {
 }
 
 interface SidebarProps {
-  /** Whether the mobile off-canvas drawer is open. Ignored on desktop (md+), where the sidebar is always visible. */
+  /** Whether the mobile off-canvas drawer is open. Ignored on wide desktop (xl+), where the sidebar is always visible. */
   mobileOpen?: boolean
   /** Called when the drawer should close on mobile (backdrop click, nav link tap, sign out). */
   onClose?: () => void
@@ -112,7 +112,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
       {/* Mobile backdrop — tap to close */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          className="fixed inset-0 bg-black/40 z-40 xl:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -127,8 +127,8 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
           // address bar makes 100vh taller than the real visible viewport).
           'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          // Desktop: always visible, back in normal flow
-          'md:static md:translate-x-0 md:z-auto md:min-h-screen'
+          // Wide desktop: always visible, back in normal flow
+          'xl:static xl:translate-x-0 xl:z-auto xl:min-h-screen'
         )}
       >
 

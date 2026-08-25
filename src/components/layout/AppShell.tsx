@@ -19,8 +19,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile-only top bar with hamburger toggle — hidden on desktop since the Sidebar is always visible there */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white sticky top-0 z-30">
+        {/* Mobile-only top bar with hamburger toggle — hidden on wide desktop since the Sidebar is always visible there */}
+        <div className="xl:hidden flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white sticky top-0 z-30">
           <button
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
