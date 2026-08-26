@@ -295,9 +295,9 @@ export default function ApprovalsPage() {
                             <XCircle size={13} /> Reject
                           </Button>
 
-                          <Button size="sm" className="w-full justify-center sm:w-auto sm:flex-1">
+                          {/*<Button size="sm" className="w-full justify-center sm:w-auto sm:flex-1">
                             <Mail size={13} /> Request info
-                          </Button>
+                          </Button>*/}
                         </div>
                       </div>
                     </article>
