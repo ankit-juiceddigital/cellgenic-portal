@@ -6,13 +6,14 @@
 // and a country to decide whether consent forms apply at all).
 
 import { NextResponse } from 'next/server'
+import { getWordPressUserDetails } from '@/lib/auth'
 
 const WC_URL = process.env.NEXT_PUBLIC_WC_URL
 const WC_KEY = process.env.WC_CONSUMER_KEY
 const WC_SECRET = process.env.WC_CONSUMER_SECRET
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   if (!WC_URL || !WC_KEY || !WC_SECRET) {
@@ -20,6 +21,19 @@ export async function GET(
       { error: 'WooCommerce credentials not configured.' },
       { status: 500 }
     )
+  }
+
+  // SECURITY: previously unauthenticated — it returned any customer's
+  // name, email, phone and country to any caller.
+  const authHeader = request.headers.get('authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  if (!token) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  }
+  try {
+    await getWordPressUserDetails(token)
+  } catch {
+    return NextResponse.json({ error: 'Invalid or expired session.' }, { status: 401 })
   }
 
   const { id: customerId } = await params

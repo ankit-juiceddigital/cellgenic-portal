@@ -296,6 +296,7 @@ export function useNotes(clientId: number) {
 // PLACE ORDER
 // ─────────────────────────────────────────────
 export function usePlaceOrder() {
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -315,7 +316,11 @@ export function usePlaceOrder() {
       // Call the internal server-side API route — keeps WC credentials off the browser
       const res = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          // Required since /api/orders started verifying the caller.
+          Authorization: `Bearer ${user?.token}`,
+        },
         body: JSON.stringify(params),
       })
       const data = await res.json()
