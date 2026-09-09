@@ -305,6 +305,24 @@ body.dense .ini{width:26px;height:26px;font-size:10px}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(150%);background:var(--ink);color:#fff;padding:13px 18px;border-radius:12px;font-size:13.5px;z-index:100;transition:transform .26s cubic-bezier(.4,0,.2,1);max-width:92vw;text-align:center;box-shadow:0 8px 26px rgba(0,0,0,.2)}
 .toast.on{transform:translateX(-50%) translateY(0)}
 
+/* Generic bordered content box — same tokens as .panel but without a
+   header. Used on the client profile page for address blocks and the
+   edit form sections, which the original design HTML never had a
+   layout for since it had no page like this. */
+.box{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:15px}
+.box-h{display:flex;align-items:center;gap:7px;margin-bottom:11px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#000}
+
+/* Form fields — the client profile edit view and the notes composer are
+   the only forms in the app; the design HTML had none to extract
+   verbatim, so these are built to match its existing tokens (paper/line/
+   ink, 10px radius, tap-height, same font stack). */
+.field{display:block}
+.field>span{font-size:11.5px;color:var(--muted);display:block;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:13.5px;padding:0 12px;min-height:var(--tap);font-family:inherit;color:var(--ink)}
+.field textarea{padding:10px 12px;min-height:76px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#B9B5A9}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:11px}
+
 @media (max-width:1300px){
   .tr{grid-template-columns:34px minmax(180px,1.6fr) 150px 120px 118px 128px 36px}
   .col-acc,.c-acc,.col-rep,.c-rep{display:none}
