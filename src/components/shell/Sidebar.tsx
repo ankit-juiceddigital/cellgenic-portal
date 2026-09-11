@@ -7,12 +7,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useFilters } from '@/lib/filter-context'
 import { usePortal } from '@/hooks/usePortal'
+import { useMyReferralStats } from '@/hooks/useData'
 import { counts, initials } from '@/lib/portal-model'
 import { NavIcon } from '@/components/ui/Icons'
+import { Copy, Check } from 'lucide-react'
 
 export interface NavItem {
   key: string
@@ -86,6 +88,35 @@ function NavButton({ item, active }: { item: NavItem; active: boolean }) {
   )
 }
 
+// Compact, always-visible referral link for the current user — separate
+// from the full /referral page (stats, QR code, share options). Renders
+// nothing while loading or if this account has no rep code yet (e.g.
+// administrators), so it never shows a broken/empty state in the nav.
+function SidebarReferralLink() {
+  const { data, loading, error } = useMyReferralStats()
+  const [copied, setCopied] = useState(false)
+
+  if (loading || error || !data?.referral_url) return null
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText('https://' + data.referral_url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div>
+      <p className="navsec">Your referral link</p>
+      <div className="refbox">
+        <span className="mono">{data.referral_url}</span>
+        <button onClick={handleCopy} title="Copy referral link">
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const { user, logout } = useAuth()
@@ -150,6 +181,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </nav>
         </div>
       )}
+
+      <SidebarReferralLink />
 
       <div className="side-foot">
         <button onClick={logout} title="Sign out">
