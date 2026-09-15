@@ -104,6 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       .sort((a, b) => b.length - a.length)[0]
     return (key && PAGE_META[key]) || { t: 'Portal', s: '' }
   }, [pathname])
+  const isApprovalsPage = pathname === '/approvals' || pathname.startsWith('/approvals/')
 
   // Copy / context-menu / drag suppression, per the design's no-export
   // stance. Scoped to this shell so it never leaks onto the login page.
@@ -166,26 +167,28 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </div>
 
-          <header className="top">
-            <div className="top-row">
-              <div>
-                <h1>{meta.t}</h1>
-                <p className="sub">{meta.s}</p>
-              </div>
-              <div className="top-act">
-                <div className="search">
-                  <SearchIcon />
-                  <input
-                    type="search"
-                    placeholder="Search client, email, phone…"
-                    autoComplete="off"
-                    value={term}
-                    onChange={e => onSearch(e.target.value)}
-                  />
+          {!isApprovalsPage && (
+            <header className="top">
+              <div className="top-row">
+                <div>
+                  <h1>{meta.t}</h1>
+                  <p className="sub">{meta.s}</p>
+                </div>
+                <div className="top-act">
+                  <div className="search">
+                    <SearchIcon />
+                    <input
+                      type="search"
+                      placeholder="Search client, email, phone…"
+                      autoComplete="off"
+                      value={term}
+                      onChange={e => onSearch(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </header>
+            </header>
+          )}
 
           <div className="wrap">{children}</div>
         </main>

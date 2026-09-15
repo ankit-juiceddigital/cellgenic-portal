@@ -454,6 +454,8 @@ function ApprovalDrawer({ id, shell }: { id: number; shell: Shell }) {
       <>
         <dl className="kv">
           <dt>Country</dt><dd>{a.c}</dd>
+          <dt>State</dt><dd>{a.state || '—'}</dd>
+          <dt>City</dt><dd>{a.city || '—'}</dd>
           <dt>Email</dt>
           <dd className="nosel">{shown ? a.e : <><span className="masked">{maskEmail(a.e)}</span><button className="rev" onClick={() => setShown(true)}>Show</button></>}</dd>
           <dt>Phone</dt>

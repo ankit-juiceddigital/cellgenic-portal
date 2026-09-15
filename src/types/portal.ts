@@ -79,6 +79,8 @@ export interface Approval {
   p: string
   c: string
   cc: string
+  state: string | null
+  city: string | null
   req: Date               // submitted
   note: string            // derived review note
   doc: string             // documents summary

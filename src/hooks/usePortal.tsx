@@ -104,6 +104,8 @@ function mapApproval(r: any): Approval {
     p: r.phone || '',
     c: r.country || '—',
     cc: '', // /pending-providers returns a country NAME, not a code — see plan
+    state: r.state || null,
+    city: r.city || null,
     req: parseDate(r.submitted) || new Date(),
     note,
     doc: r.has_document ? 'Verification document on file' : 'No documents uploaded',
