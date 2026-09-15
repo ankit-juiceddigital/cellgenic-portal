@@ -46,7 +46,7 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="min-w-0">
       <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="break-words text-sm leading-5 text-gray-700">{value || '—'}</p>
+      <p className="break-words text-sm leading-5 text-gray-700 mt-1 mb-1">{value || '—'}</p>
     </div>
   )
 }
