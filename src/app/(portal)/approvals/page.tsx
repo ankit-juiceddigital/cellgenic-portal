@@ -4,6 +4,7 @@
 // Keeps the old portal's compact approvals-card layout while using the
 // current portal's data/actions and approval detail drawer.
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useUI } from '@/lib/ui-context'
@@ -133,6 +134,8 @@ export default function ApprovalsPage() {
   const { openDrawer, toast } = useUI()
   const { user } = useAuth()
   const isRep = user?.role === 'sales_rep'
+  const [sourceFilter, setSourceFilter] = useState<'become_provider' | 'colombia_webinar'>('become_provider')
+  const filteredApprovals = approvals.filter(a => a.source === sourceFilter)
 
   const openApproval = (id: number) => openDrawer({ kind: 'a', id })
 
@@ -145,7 +148,21 @@ export default function ApprovalsPage() {
         >
           <ArrowLeft size={15} /> Back
         </button>
-        <InvestmentLegend />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500" htmlFor="approval-source">
+            Application type
+          </label>
+          <select
+            id="approval-source"
+            value={sourceFilter}
+            onChange={e => setSourceFilter(e.target.value as 'become_provider' | 'colombia_webinar')}
+            className="min-w-[210px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm outline-none focus:border-gray-400"
+          >
+            <option value="become_provider">Become a Provider</option>
+            <option value="colombia_webinar">Colombia Webinar</option>
+          </select>
+          {sourceFilter === 'become_provider' && <InvestmentLegend />}
+        </div>
       </div>
 
       {loading && (
@@ -164,18 +181,18 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      {!loading && !error && approvals.length === 0 && (
+      {!loading && !error && filteredApprovals.length === 0 && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
           <CheckCircle size={24} className="mx-auto mb-2 text-green-500" />
           <p className="text-sm font-medium text-green-700">
-            {isRep ? 'No requests from your referral link are waiting.' : 'All caught up — no pending approvals.'}
+            {isRep ? 'No requests from your referral link are waiting.' : sourceFilter === 'colombia_webinar' ? 'No pending Colombia Webinar applications.' : 'No pending Become a Provider applications.'}
           </p>
         </div>
       )}
 
-      {!loading && !error && approvals.length > 0 && (
+      {!loading && !error && filteredApprovals.length > 0 && (
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {approvals.map(a => (
+          {filteredApprovals.map(a => (
             <article
               key={a.id}
               role="button"
@@ -196,11 +213,14 @@ export default function ApprovalsPage() {
                     <p className="break-words text-base font-semibold leading-5 text-gray-900">{a.n}</p>
                     <p className="mt-1 break-all text-xs leading-4 text-gray-400">{a.e}</p>
                   </div>
-                  <Badge variant="blue">Pending</Badge>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <Badge variant="blue">Pending</Badge>
+                    {a.source === 'colombia_webinar' && <Badge variant="teal">Colombia Webinar</Badge>}
+                  </div>
                 </div>
 
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <InvestmentBadge value={a.investment} />
+                  {a.source === 'become_provider' && <InvestmentBadge value={a.investment} />}
                   {a.hasDocument && (
                     <Badge variant="teal">
                       <FileText size={10} className="mr-1" /> Doc uploaded
@@ -217,14 +237,24 @@ export default function ApprovalsPage() {
                   <Field label="Phone" value={a.p} />
                   <Field label="Provider role" value={a.providerRole} />
                   <Field label="Country" value={a.c} />
-                  <Field label="Experience" value={a.years} />
-                  <Field label="State" value={a.state} />
+                  {a.source === 'become_provider' ? (
+                    <Field label="Experience" value={a.years} />
+                  ) : (
+                    <Field label="Reference" value={a.applicationReference} />
+                  )}
+                  <Field label={a.source === 'colombia_webinar' ? 'Department' : 'State'} value={a.state} />
                   <Field label="City" value={a.city} />
                 </div>
 
-                <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-2">
-                  <Field label="Investment level" value={a.investment} />
-                </div>
+                {a.source === 'become_provider' ? (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-2">
+                    <Field label="Investment level" value={a.investment} />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-2">
+                    <Field label="Webinar offer" value={a.offerPercent ? `${a.offerPercent}% · ${a.offerCode || 'COL22-VERIFY-15'}` : a.offerCode} />
+                  </div>
+                )}
 
                 <button
                   type="button"

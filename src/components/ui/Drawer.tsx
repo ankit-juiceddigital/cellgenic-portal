@@ -453,19 +453,33 @@ function ApprovalDrawer({ id, shell }: { id: number; shell: Shell }) {
     main: (
       <>
         <dl className="kv">
+          <dt>Application type</dt><dd>{a.source === 'colombia_webinar' ? 'Colombia Webinar' : 'Become a Provider'}</dd>
+          {a.applicationReference && <><dt>Reference</dt><dd className="mono">{a.applicationReference}</dd></>}
           <dt>Country</dt><dd>{a.c}</dd>
-          <dt>State</dt><dd>{a.state || '—'}</dd>
+          <dt>{a.source === 'colombia_webinar' ? 'Department' : 'State'}</dt><dd>{a.state || '—'}</dd>
           <dt>City</dt><dd>{a.city || '—'}</dd>
           <dt>Email</dt>
           <dd className="nosel">{shown ? a.e : <><span className="masked">{maskEmail(a.e)}</span><button className="rev" onClick={() => setShown(true)}>Show</button></>}</dd>
           <dt>Phone</dt>
           <dd className="nosel">{shown ? <span className="mono">{a.p}</span> : <><span className="masked">{maskPhone(a.p)}</span><button className="rev" onClick={() => setShown(true)}>Show</button></>}</dd>
           <dt>Role</dt><dd>{a.providerRole || '—'}</dd>
-          <dt>Experience</dt><dd>{a.years || '—'}</dd>
-          <dt>Patient volume</dt><dd>{a.volume || '—'}</dd>
-          <dt>Practice</dt><dd>{a.setup || '—'}</dd>
-          <dt>Pillars</dt><dd>{a.pillars || '—'}</dd>
-          <dt>Investment</dt><dd>{a.investment || '—'}</dd>
+          {a.source === 'become_provider' ? (
+            <>
+              <dt>Experience</dt><dd>{a.years || '—'}</dd>
+              <dt>Patient volume</dt><dd>{a.volume || '—'}</dd>
+              <dt>Practice</dt><dd>{a.setup || '—'}</dd>
+              <dt>Pillars</dt><dd>{a.pillars || '—'}</dd>
+              <dt>Investment</dt><dd>{a.investment || '—'}</dd>
+            </>
+          ) : (
+            <>
+              <dt>Offer</dt><dd>{a.offerPercent ? `${a.offerPercent}%` : '—'}{a.offerCode ? ` · ${a.offerCode}` : ''}</dd>
+              <dt>Offer held</dt><dd>{a.offerHeldAt || '—'}</dd>
+              <dt>Offer deadline</dt><dd>{a.offerDeadline || '—'}</dd>
+              <dt>Within window</dt><dd>{a.offerWithinWindow ? 'Yes' : 'No'}</dd>
+              <dt>Consent recorded</dt><dd>{a.consentAt || '—'}</dd>
+            </>
+          )}
           <dt>Referral</dt><dd>{a.referralCode || <span className="never">None (unclaimed)</span>}</dd>
           <dt>Documents</dt><dd>{a.doc}</dd>
         </dl>

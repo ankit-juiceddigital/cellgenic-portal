@@ -94,6 +94,14 @@ export interface Approval {
   pillars: string | null
   investment: string | null
   message: string | null
+  source: 'become_provider' | 'colombia_webinar'
+  applicationReference: string | null
+  consentAt: string | null
+  offerCode: string | null
+  offerPercent: number | null
+  offerHeldAt: string | null
+  offerDeadline: string | null
+  offerWithinWindow: boolean
 }
 
 export interface Rep {

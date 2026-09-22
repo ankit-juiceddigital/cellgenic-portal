@@ -119,6 +119,14 @@ function mapApproval(r: any): Approval {
     pillars: r.pillars || null,
     investment: r.investment || null,
     message: r.message || null,
+    source: r.source === 'colombia_webinar' ? 'colombia_webinar' : 'become_provider',
+    applicationReference: r.reference || null,
+    consentAt: r.consent_at || null,
+    offerCode: r.offer_code || null,
+    offerPercent: r.offer_percent ? Number(r.offer_percent) : null,
+    offerHeldAt: r.offer_held_at || null,
+    offerDeadline: r.offer_deadline || null,
+    offerWithinWindow: Boolean(r.offer_within_window),
   }
 }
 
