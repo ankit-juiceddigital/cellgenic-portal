@@ -42,6 +42,19 @@ export const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
 export const initials = (name: string) =>
   name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
+
+/** True while a provider application is still waiting for an admin decision. */
+export function isAwaitingAdminReview(status?: string | null): boolean {
+  return (status || '').toLowerCase() === 'awaiting_admin_review'
+}
+
+/** Human-readable account status for profile/detail views. */
+export function accountStatusLabel(status?: string | null): string {
+  const raw = (status || '').trim()
+  if (!raw) return '—'
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 /** Parses whatever the WP/WC APIs hand back, including nulls. */
 export function parseDate(v: unknown): Date | null {
   if (!v) return null
@@ -157,7 +170,13 @@ export function enrich(list: Provider[], now = today()): Provider[] {
   return list.map((x, i) => {
     const p: Provider = { ...x, i }
 
-    if (!p.acc) {
+    // An application can exist in the portal-clients payload before an
+    // admin has approved it. Some older records may even already carry an
+    // access_granted_at value. Do not treat that date as live access until
+    // approval is complete, otherwise the UI starts the 30-day clock early.
+    const accessIsLive = !isAwaitingAdminReview(p.accountStatus) && p.accountStatus !== 'rejected'
+
+    if (!accessIsLive || !p.acc) {
       p.elapsed = 0
       p.left = WINDOW_DAYS
       p.closes = null
@@ -168,7 +187,7 @@ export function enrich(list: Provider[], now = today()): Provider[] {
     }
 
     if (p.orders > 0) { p.bucket = 'act'; p.stage = 'act' }
-    else if (p.acc && p.left <= 0) { p.bucket = 'dead'; p.stage = 'dead' }
+    else if (accessIsLive && p.acc && p.left <= 0) { p.bucket = 'dead'; p.stage = 'dead' }
     else if (p.left <= URGENT_AT) p.bucket = 'urg'
     else if (p.left <= WARN_AT) p.bucket = 'warn'
     else p.bucket = 'ok'

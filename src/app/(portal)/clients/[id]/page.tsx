@@ -38,7 +38,7 @@ import {
 } from '@/hooks/useData'
 import { MultiProductOrderForm } from '@/components/MultiProductOrder'
 import {
-  dayDiff, flag, fmt, maskEmail, maskPhone, money, orderStatus, STAGE, today,
+  accountStatusLabel, dayDiff, flag, fmt, isAwaitingAdminReview, maskEmail, maskPhone, money, orderStatus, STAGE, today,
 } from '@/lib/portal-model'
 import { ChevronLeft, ChevronRight } from '@/components/ui/Icons'
 import { RepPickerSheet } from '@/components/ui/Sheet'
@@ -206,7 +206,8 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
   const { notes, loading: notesLoading, addNote } = useNotes(clientId)
   const { data: products } = useProducts()
 
-  const isActive = x ? x.orders > 0 || x.accountStatus !== 'deactivated' : true
+  const awaitingReview = x ? isAwaitingAdminReview(x.accountStatus) : false
+  const isActive = x ? !['deactivated', 'awaiting_admin_review', 'rejected'].includes(x.accountStatus) : true
   const country = x?.c || customer?.country || null
 
   const [tab, setTab] = useState<'orders' | 'notes' | 'place'>('orders')
@@ -218,7 +219,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
   const [clientForm, setClientForm] = useState<any>(null)
   const [clientSaved, setClientSaved] = useState(false)
 
-  const canPlaceOrder = isRep || isManager || isAdmin
+  const canPlaceOrder = (isRep || isManager || isAdmin) && !awaitingReview
   const canManageAccess = isAdmin || isManager
 
   const handleAddNote = async () => {
@@ -306,6 +307,9 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
             {x.accountStatus === 'deactivated' && (
               <span className="tag" style={{ background: 'var(--clay-bg)', color: 'var(--clay)' }}>Deactivated</span>
             )}
+            {awaitingReview && (
+              <span className="tag" style={{ background: 'var(--amber-bg)', color: 'var(--amber)' }}>Awaiting admin review</span>
+            )}
             {!editingClient && (
               <span className="r">
                 <button className="btn btn-sm" onClick={startEditingClient}>Edit client information</button>
@@ -316,7 +320,17 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
           <div style={{ padding: 15 }}>
             {/* Same window summary as the drawer's count block */}
             <div className="dr-c" style={{ marginBottom: 15 }}>
-              {x.orders > 0 ? (
+              {awaitingReview ? (
+                <>
+                  <div className="r">
+                    <span style={{ color: 'var(--amber)', fontWeight: 500 }}>Awaiting admin review</span>
+                    <b style={{ color: 'var(--amber)', fontSize: 14 }}>Pending</b>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    Access has not been granted yet. The 30-day window starts after approval.
+                  </div>
+                </>
+              ) : x.orders > 0 ? (
                 <>
                   <div className="r">
                     <span style={{ color: 'var(--jade)', fontWeight: 500 }}>Active client</span>
@@ -376,9 +390,10 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
                       if (r) openDrawer({ kind: 'r', id: r.id })
                     }}>{x.rep}</button>
                   ) : <span className="never">Unassigned</span>}</dd>
-                  <dt>Account status</dt><dd style={{ textTransform: 'capitalize' }}>{x.accountStatus}</dd>
+                  <dt>Account status</dt><dd>{accountStatusLabel(x.accountStatus)}</dd>
                   <dt>Country</dt><dd>{flag(x.cc)} {x.c}</dd>
-                  <dt>Access granted</dt><dd className="mono">{x.acc ? fmt(x.acc) : '—'}</dd>
+                  <dt>{awaitingReview ? 'Access status' : 'Access granted'}</dt>
+                  <dd className={awaitingReview ? undefined : 'mono'}>{awaitingReview ? 'Not granted — pending admin approval' : x.acc ? fmt(x.acc) : '—'}</dd>
                   <dt>Registered</dt><dd className="mono">{customer?.registered_at || '—'}</dd>
                   <dt>Reg. city</dt><dd>{customer?.registration_location?.city || '—'}</dd>
                   <dt>Reg. state</dt><dd>{customer?.registration_location?.state || '—'}</dd>
@@ -455,11 +470,12 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 18, paddingTop: 15, borderTop: '1px solid var(--line-soft)' }}>
                 <button
                   className="btn btn-sm btn-dark"
+                  disabled={awaitingReview}
                   onClick={async () => {
                     try { await advanceStage(x.id); toast(`${x.n}: ${STAGE[x.stage].act} logged.`) }
                     catch (e: any) { toast(e.message || 'Could not update the stage.') }
                   }}
-                >{st!.act}</button>
+                >{awaitingReview ? 'Pending approval' : st!.act}</button>
                 <button
                   className="btn btn-sm"
                   onClick={() => {
@@ -481,11 +497,13 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
                     />,
                   )}
                 >{x.rep ? 'Change rep' : 'Assign rep'}</button>
-                <button
-                  className="btn btn-sm"
-                  onClick={async () => { await extend([x.id], 15); toast('Window extended 15 days.') }}
-                >Extend 15 days</button>
-                {canManageAccess && (
+                {!awaitingReview && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={async () => { await extend([x.id], 15); toast('Window extended 15 days.') }}
+                  >Extend 15 days</button>
+                )}
+                {canManageAccess && !awaitingReview && (
                   x.accountStatus === 'deactivated' ? (
                     <button
                       className="btn btn-sm"

@@ -7,7 +7,7 @@
 import { useEffect } from 'react'
 import { useFilters } from '@/lib/filter-context'
 import { usePortal } from '@/hooks/usePortal'
-import { PIPE_COLUMNS, WINDOW_DAYS } from '@/lib/portal-model'
+import { isAwaitingAdminReview, PIPE_COLUMNS, WINDOW_DAYS } from '@/lib/portal-model'
 import { FilterBar, useProviderFilter } from '@/components/ui/FilterBar'
 import { GroupedProviderTable, PipelineView } from '@/components/ui/ProviderTable'
 import { ChevronDown } from '@/components/ui/Icons'
@@ -47,7 +47,9 @@ export default function ActivationPage() {
     )
   }
 
-  const rows = providers.filter(match)
+  // Pending applications belong in Approvals. The activation clock starts
+  // only after access is actually granted.
+  const rows = providers.filter(x => !isAwaitingAdminReview(x.accountStatus) && x.accountStatus !== 'rejected').filter(match)
   const whyClosed = collapsed.has('why')
 
   return (

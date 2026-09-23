@@ -13,7 +13,7 @@ import { useFilters } from '@/lib/filter-context'
 import { useUI } from '@/lib/ui-context'
 import { usePortal } from '@/hooks/usePortal'
 import {
-  dayDiff, flag, fmt, fmtShort, GROUPS, initials, maskPhone, PER_PAGE,
+  dayDiff, flag, fmt, fmtShort, GROUPS, initials, isAwaitingAdminReview, maskPhone, PER_PAGE,
   sortProviders, STAGE, today, type SortKey,
 } from '@/lib/portal-model'
 import type { Provider } from '@/types/portal'
@@ -25,6 +25,13 @@ import { RepPickerSheet, RowActionsSheet } from '@/components/ui/Sheet'
 // WINDOW CELL
 // ─────────────────────────────────────────────
 function WindowCell({ x }: { x: Provider }) {
+  if (isAwaitingAdminReview(x.accountStatus)) {
+    return (
+      <div className="win">
+        <span className="lbl"><b style={{ color: 'var(--amber)' }}>Pending approval</b> window not started</span>
+      </div>
+    )
+  }
   if (x.orders > 0) {
     return (
       <div className="win">
@@ -70,6 +77,7 @@ export function ProviderRow({ x }: { x: Provider }) {
   const { revealed, reveal, advanceStage, repNames, reps, assignRep } = usePortal()
 
   const st = STAGE[x.stage]
+  const awaitingReview = isAwaitingAdminReview(x.accountStatus)
   const shown = revealed.has(x.id)
   const isSel = selected.has(x.id)
   const naClass = x.bucket === 'urg' ? 'na hot' : x.bucket === 'warn' ? 'na mid' : 'na'
@@ -132,8 +140,8 @@ export function ProviderRow({ x }: { x: Provider }) {
 
       <div className="c-acc dcell">
         <span className="mlb">Access</span>
-        <b className="mono">{x.acc ? fmt(x.acc) : '—'}</b>
-        <span>{x.acc ? `${x.elapsed} d ago` : 'not recorded'}</span>
+        <b className={awaitingReview ? undefined : 'mono'}>{awaitingReview ? 'Pending' : x.acc ? fmt(x.acc) : '—'}</b>
+        <span>{awaitingReview ? 'not granted' : x.acc ? `${x.elapsed} d ago` : 'not recorded'}</span>
       </div>
 
       <div className="c-win"><WindowCell x={x} /></div>
@@ -146,8 +154,8 @@ export function ProviderRow({ x }: { x: Provider }) {
       </div>
 
       <div className="c-stage">
-        <button className={`pill ${st.k}`} onClick={e => { stop(e); setStage(x.stage); toast(`Stage: ${st.t}`) }}>
-          {st.t}
+        <button className={`pill ${awaitingReview ? 'p-noresp' : st.k}`} onClick={e => { stop(e); setStage(x.stage); toast(awaitingReview ? 'Awaiting admin review' : `Stage: ${st.t}`) }}>
+          {awaitingReview ? 'Pending review' : st.t}
         </button>
       </div>
 
@@ -183,6 +191,7 @@ export function ProviderRow({ x }: { x: Provider }) {
       <div className="c-next">
         <button
           className={naClass}
+          disabled={awaitingReview}
           onClick={async e => {
             stop(e)
             const was = st.t
@@ -191,7 +200,7 @@ export function ProviderRow({ x }: { x: Provider }) {
               toast(x.stage === 'act' ? `Contact logged with ${x.n}.` : `${x.n}: ${was} → next stage`)
             } catch (err: any) { toast(err.message || 'Could not update the stage.') }
           }}
-        >{st.act}</button>
+        >{awaitingReview ? 'Pending approval' : st.act}</button>
       </div>
 
       <div className="c-more">

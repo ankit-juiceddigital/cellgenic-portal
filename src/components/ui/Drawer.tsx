@@ -13,7 +13,7 @@ import { useUI } from '@/lib/ui-context'
 import { usePortal } from '@/hooks/usePortal'
 import * as api from '@/lib/api'
 import {
-  dayDiff, flag, fmt, maskEmail, maskPhone, money,
+  dayDiff, flag, fmt, isAwaitingAdminReview, maskEmail, maskPhone, money,
   orderStatus, repStats, STAGE, today, WINDOW_DAYS,
 } from '@/lib/portal-model'
 import type { Provider } from '@/types/portal'
@@ -108,11 +108,24 @@ function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
   if (!x) return null
 
   const st = STAGE[x.stage]
+  const awaitingReview = isAwaitingAdminReview(x.accountStatus)
   const shown = revealed.has(x.id)
   const ords = ordersFor(x.id)
   const frame = { ref: { kind: 'p' as const, id: x.id }, label: x.n }
 
-  const count = x.orders > 0
+  const count = awaitingReview
+    ? (
+      <>
+        <div className="r">
+          <span style={{ color: 'var(--amber)', fontWeight: 500 }}>Awaiting admin review</span>
+          <b style={{ color: 'var(--amber)', fontSize: 14 }}>Pending</b>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+          Access has not been granted yet. The 30-day window starts after approval.
+        </div>
+      </>
+    )
+    : x.orders > 0
     ? (
       <>
         <div className="r">
@@ -155,6 +168,7 @@ function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
     <>
       <button
         className="btn btn-sm btn-dark"
+        disabled={awaitingReview}
         onClick={async () => {
           const was = st.t
           try {
@@ -165,7 +179,7 @@ function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
               : `${x.n}: ${was} → ${STAGE[now?.stage || x.stage].t}`)
           } catch (e: any) { toast(e.message || 'Could not update the stage.') }
         }}
-      >{st.act}</button>
+      >{awaitingReview ? 'Pending approval' : st.act}</button>
       <button
         className="btn btn-sm"
         onClick={() => {
@@ -187,13 +201,15 @@ function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
           />,
         )}
       >{x.rep ? 'Change rep' : 'Assign rep'}</button>
-      <button
-        className="btn btn-sm"
-        onClick={async () => {
-          await extend([x.id], 15)
-          toast('Window extended 15 days. Undo it from the profile below.')
-        }}
-      >Extend 15 days</button>
+      {!awaitingReview && (
+        <button
+          className="btn btn-sm"
+          onClick={async () => {
+            await extend([x.id], 15)
+            toast('Window extended 15 days. Undo it from the profile below.')
+          }}
+        >Extend 15 days</button>
+      )}
       {/* The full profile page still owns notes, DocuSign consent and the
           place-order form, so the drawer links to it rather than
           duplicating them. */}
@@ -211,13 +227,17 @@ function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
   const main = (
     <>
       <dl className="kv">
-        <dt>Access granted</dt>
-        <dd className="mono">
-          {x.acc ? fmt(x.acc) : '—'}
+        <dt>{awaitingReview ? 'Access status' : 'Access granted'}</dt>
+        <dd className={awaitingReview ? undefined : 'mono'}>
+          {awaitingReview ? 'Pending admin approval' : x.acc ? fmt(x.acc) : '—'}
         </dd>
-        <dt>Closes on</dt>
-        <dd className="mono">{x.orders > 0 ? '—' : x.closes ? fmt(x.closes) : '—'}</dd>
-        {x.extendedDays > 0 && (
+        {!awaitingReview && (
+          <>
+            <dt>Closes on</dt>
+            <dd className="mono">{x.orders > 0 ? '—' : x.closes ? fmt(x.closes) : '—'}</dd>
+          </>
+        )}
+        {!awaitingReview && x.extendedDays > 0 && (
           <>
             <dt>Extended by</dt>
             <dd>
@@ -304,11 +324,13 @@ function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
         {events.slice(0, 6).map((ev: any, k: number) => (
           <div className="ev" key={`e${k}`}>{ev.note}<time>{ev.at} · {ev.by}</time></div>
         ))}
-        {x.acc
-          ? <div className="ev">Access granted<time>{fmt(x.acc)}</time></div>
-          : <div className="ev">No access date recorded<time>backfill pending</time></div>}
+        {awaitingReview
+          ? <div className="ev">Application awaiting admin review<time>Access not granted</time></div>
+          : x.acc
+            ? <div className="ev">Access granted<time>{fmt(x.acc)}</time></div>
+            : <div className="ev">No access date recorded<time>backfill pending</time></div>}
         {!notes.length && !events.length && x.orders === 0 && (
-          <div className="ev">No contact logged<time>{x.elapsed} days with no activity</time></div>
+          <div className="ev">No contact logged<time>{awaitingReview ? 'No activity logged yet' : `${x.elapsed} days with no activity`}</time></div>
         )}
       </div>
     </>

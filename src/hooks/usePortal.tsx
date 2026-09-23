@@ -46,7 +46,7 @@ function mapProvider(r: any): Provider {
     stage: (r.stage || 'new') as Stage,
     vip: Boolean(r.vip),
     tag: r.tag || null,
-    accountStatus: r.account_status || 'approved',
+    accountStatus: String(r.account_status || 'approved').toLowerCase(),
     extendedDays: Number(r.window_extra_days || 0),
     // filled by enrich()
     elapsed: 0, left: 0, closes: null, bucket: 'ok',
