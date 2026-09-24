@@ -219,7 +219,9 @@ export function counts(list: Provider[], orders: Order[], approvals: Approval[])
     norep: list.filter(x => !x.rep && x.orders === 0).length,
     win: list.filter(x => ['urg', 'warn', 'ok'].includes(x.bucket)).length,
     act: list.filter(x => x.orders > 0).length,
-    ord: orders.length,
+    // Before the lazy Orders page has loaded full WooCommerce records, use
+    // the per-provider cached counts so navigation never shows a false zero.
+    ord: orders.length || list.reduce((sum, x) => sum + x.orders, 0),
     apr: approvals.length,
   }
 }

@@ -21,27 +21,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  // On mount — restore session from localStorage and validate token
+  // On mount, restore the locally saved session immediately so protected
+  // pages can start rendering/fetching without waiting on a separate WP
+  // validation round trip. The token is still validated in the background,
+  // and every protected API call independently verifies it server-side.
   useEffect(() => {
+    let cancelled = false
+
     async function restoreSession() {
       const stored = getSession()
       if (!stored) {
         setLoading(false)
         return
       }
-      // Validate the token is still good
-      const valid = await validateToken(stored.token)
-      if (valid) {
-        setUser(stored)
-      } else {
-        // Token expired — clear and redirect to login
-        clearSession()
-        router.push('/auth/login')
-      }
+
+      setUser(stored)
       setLoading(false)
+
+      const valid = await validateToken(stored.token)
+      if (!valid && !cancelled) {
+        clearSession()
+        setUser(null)
+        router.replace('/auth/login')
+      }
     }
+
     restoreSession()
-  }, [])
+    return () => { cancelled = true }
+  }, [router])
 
   const login = (userData: AuthUser) => {
     saveSession(userData)

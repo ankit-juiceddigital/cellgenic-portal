@@ -89,7 +89,10 @@ type Shell = (b: {
 // ─────────────────────────────────────────────
 function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
   const { user } = useAuth()
-  const { byId, ordersFor, revealed, reveal, advanceStage, extend, repNames, assignRep, reps } = usePortal()
+  const {
+    byId, ordersFor, loadOrdersFor, isOrdersLoadingFor, isOrdersLoadedFor,
+    revealed, reveal, advanceStage, extend, repNames, assignRep, reps,
+  } = usePortal()
   const { openDrawer, openSheet, toast, closeDrawer } = useUI()
   const { setCountry, goWithAlert } = useFilters()
   const [events, setEvents] = useState<any[]>([])
@@ -104,6 +107,11 @@ function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
     api.getNotes(user.token, id).then(n => { if (!dead) setNotes(n || []) }).catch(() => {})
     return () => { dead = true }
   }, [user?.token, id, x])
+
+  useEffect(() => {
+    if (!x || x.orders <= 0 || isOrdersLoadedFor(id) || isOrdersLoadingFor(id)) return
+    loadOrdersFor(id).catch(() => {})
+  }, [x, id, loadOrdersFor, isOrdersLoadedFor, isOrdersLoadingFor])
 
   if (!x) return null
 
@@ -293,20 +301,24 @@ function ProviderDrawer({ id, shell }: { id: number; shell: Shell }) {
               <button className="rev" onClick={() => reveal(x.id).then(() => toast('Contact shown — the reveal is logged.'))}>Show</button></>}</dd>
       </dl>
 
-      {ords.length > 0 && (
+      {x.orders > 0 && (
         <>
-          <p className="sec-h">Orders ({ords.length})</p>
-          <div className="mini">
-            {ords.map(o => (
-              <button key={o.id} onClick={() => openDrawer({ kind: 'o', id: o.id }, frame)}>
-                <span className="g">
-                  <b>Order {o.number}</b>
-                  <span>{fmt(o.date)} · {orderStatus(o.status).t}</span>
-                </span>
-                <span className="mono" style={{ fontWeight: 600 }}>{money(o.total)}</span>
-              </button>
-            ))}
-          </div>
+          <p className="sec-h">Orders ({x.orders})</p>
+          {isOrdersLoadingFor(x.id) && !isOrdersLoadedFor(x.id) ? (
+            <div style={{ fontSize: 12, color: 'var(--muted)', paddingBottom: 8 }}>Loading order history…</div>
+          ) : ords.length > 0 ? (
+            <div className="mini">
+              {ords.map(o => (
+                <button key={o.id} onClick={() => openDrawer({ kind: 'o', id: o.id }, frame)}>
+                  <span className="g">
+                    <b>Order {o.number}</b>
+                    <span>{fmt(o.date)} · {orderStatus(o.status).t}</span>
+                  </span>
+                  <span className="mono" style={{ fontWeight: 600 }}>{money(o.total)}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </>
       )}
 

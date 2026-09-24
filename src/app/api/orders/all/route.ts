@@ -151,12 +151,12 @@ export async function GET(request: Request) {
     // platform" mode, no matter what the query string says.
     mode = null
 
-    const myClientsRes = await fetch(`${WP_URL}/wp-json/cellgenic/v1/my-clients`, {
+    const myClientsRes = await fetch(`${WP_URL}/wp-json/cellgenic/v1/portal-clients`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })
-    const myClients = myClientsRes.ok ? await myClientsRes.json() : []
-    const myClientIds = new Set((myClients || []).map((c: any) => String(c.id)))
+    const myClientsPayload = myClientsRes.ok ? await myClientsRes.json() : { clients: [] }
+    const myClientIds = new Set((myClientsPayload.clients || []).map((c: any) => String(c.id)))
 
     // Intersect whatever was requested with the rep's ACTUAL clients —
     // any ID that isn't verifiably theirs is silently dropped rather

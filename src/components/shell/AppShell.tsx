@@ -61,7 +61,7 @@ function Watermark() {
 function MobileTabs({ onMenu }: { onMenu: () => void }) {
   const pathname = usePathname()
   const { operations } = useNav()
-  const { providers, orders, approvals, loading } = usePortal()
+  const { providers, orders, approvals, loading, approvalsLoading } = usePortal()
   const c = counts(providers, orders, approvals)
 
   return (
@@ -70,7 +70,7 @@ function MobileTabs({ onMenu }: { onMenu: () => void }) {
         const active = pathname === i.href || pathname.startsWith(i.href + '/')
         const badge = loading ? null : i.key === 'activation' && c.urg
           ? <span className="badge">{c.urg}</span>
-          : i.key === 'approvals' && c.apr
+          : i.key === 'approvals' && !approvalsLoading && c.apr
             ? <span className="badge" style={{ background: 'var(--indigo)' }}>{c.apr}</span>
             : null
         return (

@@ -63,6 +63,18 @@ export const getClientEvents = (token: string, id: number) =>
 export const getRevealCount = (token: string) =>
   cg<{ today: number }>('/reveal-count', token)
 
+export const getDashboardSummary = (token: string, customerIds: number[], unrestricted: boolean) => {
+  const params = new URLSearchParams()
+  if (unrestricted) params.set('mode', 'all')
+  if (customerIds.length) params.set('customers', customerIds.join(','))
+  return next<{ billed_this_month: number; orders_this_month: number }>(
+    `/api/dashboard-summary?${params}`, token,
+  )
+}
+
+export const getClientOrders = (token: string, customerId: number) =>
+  next<any[]>(`/api/orders/client/${customerId}`, token)
+
 export const getNotes = (token: string, clientId: number) =>
   cg<any[]>(`/notes?client_id=${clientId}`, token)
 

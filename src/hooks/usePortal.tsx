@@ -157,12 +157,23 @@ interface PortalValue {
   repNames: string[]
   loading: boolean
   error: string | null
+  ordersLoading: boolean
+  ordersError: string | null
+  ordersLoaded: boolean
+  dashboardBilledThisMonth: number | null
+  dashboardSummaryLoading: boolean
+  approvalsLoading: boolean
+  repsLoading: boolean
   revealed: Set<number>
   revealCount: number
   refetch: (opts?: { silent?: boolean }) => void
 
   byId: (id: number) => Provider | undefined
   ordersFor: (providerId: number) => Order[]
+  loadOrders: (force?: boolean) => Promise<void>
+  loadOrdersFor: (providerId: number, force?: boolean) => Promise<void>
+  isOrdersLoadingFor: (providerId: number) => boolean
+  isOrdersLoadedFor: (providerId: number) => boolean
 
   reveal: (providerId: number) => Promise<void>
   advanceStage: (providerId: number) => Promise<void>
@@ -191,6 +202,15 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [revealCount, setRevealCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState<string | null>(null)
+  const [ordersLoaded, setOrdersLoaded] = useState(false)
+  const [clientOrdersLoading, setClientOrdersLoading] = useState<Set<number>>(new Set())
+  const [clientOrdersLoaded, setClientOrdersLoaded] = useState<Set<number>>(new Set())
+  const [dashboardBilledThisMonth, setDashboardBilledThisMonth] = useState<number | null>(null)
+  const [dashboardSummaryLoading, setDashboardSummaryLoading] = useState(false)
+  const [approvalsLoading, setApprovalsLoading] = useState(true)
+  const [repsLoading, setRepsLoading] = useState(true)
   const [busy, setBusy] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
   // Read by the load effect on the next run, then reset. A ref rather
@@ -214,43 +234,59 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       if (!silent) setLoading(true)
       setError(null)
       try {
-        // Clients first — the orders call needs their IDs for the
-        // non-admin (per-customer) path.
+        // The only request that blocks the first usable render is the
+        // lightweight portal-client list. Full WooCommerce order history
+        // is intentionally NOT fetched here; that was the main source of
+        // slow first-paint times because admins could download thousands
+        // of complete orders before the Overview was allowed to render.
         const clientsRes = await api.getPortalClients(token!)
         if (cancelled) return
         const mapped = enrich(clientsRes.clients.map(mapProvider))
         setProviders(mapped)
 
-        // The rest in parallel. Any one of them failing degrades that
-        // section rather than blanking the page — a rep hitting 403 on
-        // /reps must still see their own clients.
-        const ids = mapped.map(p => p.id)
-        const [ordersRes, approvalsRes, repsRes, revealRes] = await Promise.allSettled([
-          api.getAllOrders(token!, ids, Boolean(isAdmin)),
+        // The portal can render now. Everything below is secondary and
+        // must never keep the main dashboard behind a loading screen.
+        if (!silent) setLoading(false)
+
+        setDashboardSummaryLoading(true)
+        setApprovalsLoading(true)
+        setRepsLoading(true)
+        const [approvalsRes, repsRes, revealRes, summaryRes] = await Promise.allSettled([
           api.getPendingProviders(token!),
           isAdmin || user?.role === 'sales_manager' ? api.getReps(token!) : Promise.resolve([]),
           api.getRevealCount(token!),
+          api.getDashboardSummary(token!, mapped.map(p => p.id), Boolean(isAdmin)),
         ])
         if (cancelled) return
 
-        if (ordersRes.status === 'fulfilled') {
-          setOrders((ordersRes.value.orders || []).map(mapOrder))
-        }
         if (approvalsRes.status === 'fulfilled') {
           setApprovals((approvalsRes.value || []).map(mapApproval))
         }
+        setApprovalsLoading(false)
         if (repsRes.status === 'fulfilled') {
           setReps(((repsRes.value as any[]) || []).map(mapRep))
         }
+        setRepsLoading(false)
         if (revealRes.status === 'fulfilled') {
           setRevealCount(revealRes.value.today || 0)
         }
+        if (summaryRes.status === 'fulfilled') {
+          setDashboardBilledThisMonth(Number(summaryRes.value.billed_this_month || 0))
+        }
+        setDashboardSummaryLoading(false)
       } catch (err: any) {
         // A failed background refresh must not replace a working screen
         // with an error panel — keep showing the last good data.
         if (!cancelled && !silent) setError(err.message || 'Could not load the portal data.')
       } finally {
-        if (!cancelled && !silent) setLoading(false)
+        if (!cancelled) {
+          if (!silent) setLoading(false)
+          setDashboardSummaryLoading(false)
+          // If a secondary request threw before its settled result was handled,
+          // do not leave a section showing a permanent spinner.
+          setApprovalsLoading(false)
+          setRepsLoading(false)
+        }
       }
     }
 
@@ -284,6 +320,65 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       clearInterval(timer)
     }
   }, [token, refetch])
+
+  // ── lazy WooCommerce order loading ──
+  // Full order history is intentionally opt-in. Overview/Clients/Activation
+  // render from the cached WordPress client totals and do not pay the cost
+  // of downloading line items, billing data and metadata they never display.
+  const loadOrders = useCallback(async (force = false) => {
+    if (!token || ordersLoading) return
+    if (ordersLoaded && !force) return
+
+    setOrdersLoading(true)
+    setOrdersError(null)
+    try {
+      const ids = providers.map(p => p.id)
+      const res = await api.getAllOrders(token, ids, Boolean(isAdmin))
+      setOrders((res.orders || []).map(mapOrder))
+      setOrdersLoaded(true)
+      // A full history supersedes any per-client partial caches.
+      setClientOrdersLoaded(new Set(ids))
+    } catch (err: any) {
+      setOrdersError(err.message || 'Could not load orders.')
+      throw err
+    } finally {
+      setOrdersLoading(false)
+    }
+  }, [token, providers, isAdmin, ordersLoading, ordersLoaded])
+
+  const loadOrdersFor = useCallback(async (providerId: number, force = false) => {
+    if (!token || !providerId) return
+    if (ordersLoaded && !force) return
+    if (clientOrdersLoading.has(providerId)) return
+    if (clientOrdersLoaded.has(providerId) && !force) return
+
+    setClientOrdersLoading(prev => new Set(prev).add(providerId))
+    try {
+      const res = await api.getClientOrders(token, providerId)
+      const mapped = (res || []).map((r: any) => mapOrder({ ...r, customer_id: r.customer_id ?? providerId }))
+      setOrders(prev => {
+        const withoutClient = prev.filter(o => o.customerId !== providerId)
+        return [...withoutClient, ...mapped]
+      })
+      setClientOrdersLoaded(prev => new Set(prev).add(providerId))
+    } finally {
+      setClientOrdersLoading(prev => {
+        const next = new Set(prev)
+        next.delete(providerId)
+        return next
+      })
+    }
+  }, [token, ordersLoaded, clientOrdersLoading, clientOrdersLoaded])
+
+  const isOrdersLoadingFor = useCallback(
+    (providerId: number) => ordersLoading || clientOrdersLoading.has(providerId),
+    [ordersLoading, clientOrdersLoading],
+  )
+
+  const isOrdersLoadedFor = useCallback(
+    (providerId: number) => ordersLoaded || clientOrdersLoaded.has(providerId),
+    [ordersLoaded, clientOrdersLoaded],
+  )
 
   // ── derived ──
   const repNames = useMemo(() => {
@@ -437,13 +532,17 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PortalValue>(() => ({
     providers, orders, approvals, reps, repNames,
-    loading, error, revealed, revealCount, refetch,
-    byId, ordersFor,
+    loading, error, ordersLoading, ordersError, ordersLoaded,
+    dashboardBilledThisMonth, dashboardSummaryLoading, approvalsLoading, repsLoading,
+    revealed, revealCount, refetch,
+    byId, ordersFor, loadOrders, loadOrdersFor, isOrdersLoadingFor, isOrdersLoadedFor,
     reveal, advanceStage, setStage: setStageFn, extend, assignRep, approve, reject,
     deactivateAccount, reactivateAccount, busy,
   }), [
-    providers, orders, approvals, reps, repNames, loading, error, revealed, revealCount,
-    refetch, byId, ordersFor, reveal, advanceStage, setStageFn, extend, assignRep, approve, reject,
+    providers, orders, approvals, reps, repNames, loading, error, ordersLoading, ordersError, ordersLoaded,
+    dashboardBilledThisMonth, dashboardSummaryLoading, approvalsLoading, repsLoading, revealed, revealCount,
+    refetch, byId, ordersFor, loadOrders, loadOrdersFor, isOrdersLoadingFor, isOrdersLoadedFor,
+    reveal, advanceStage, setStageFn, extend, assignRep, approve, reject,
     deactivateAccount, reactivateAccount, busy,
   ])
 

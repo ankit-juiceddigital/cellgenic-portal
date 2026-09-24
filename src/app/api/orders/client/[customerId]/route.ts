@@ -46,12 +46,12 @@ export async function GET(
   const { customerId } = await params
 
   if (caller.role === 'sales_rep') {
-    const myClientsRes = await fetch(`${WP_URL}/wp-json/cellgenic/v1/my-clients`, {
+    const myClientsRes = await fetch(`${WP_URL}/wp-json/cellgenic/v1/portal-clients`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })
-    const myClients = myClientsRes.ok ? await myClientsRes.json() : []
-    const myClientIds = new Set((myClients || []).map((c: any) => String(c.id)))
+    const myClientsPayload = myClientsRes.ok ? await myClientsRes.json() : { clients: [] }
+    const myClientIds = new Set((myClientsPayload.clients || []).map((c: any) => String(c.id)))
     if (!myClientIds.has(String(customerId))) {
       return NextResponse.json({ message: 'You do not have access to this client.' }, { status: 403 })
     }
@@ -83,24 +83,30 @@ export async function GET(
   const mapped = orders.map((o: any) => ({
     id: o.id,
     number: `#CG-${o.number}`,
+    customer_id: o.customer_id,
+    customer_name: `${o.billing?.first_name || ''} ${o.billing?.last_name || ''}`.trim() || o.billing?.company || 'Unknown',
     date: new Date(o.date_created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    raw_date: o.date_created,
     status: o.status,
-    total: `$${parseFloat(o.total).toLocaleString()}`,
-    products: o.line_items.map((item: any) => `${item.name} × ${item.quantity}`).join(', '),
-    // Full breakdown — matches the expandable order-details view.
-    lineItems: o.line_items.map((item: any) => ({
+    total: parseFloat(o.total || '0'),
+    total_formatted: `$${parseFloat(o.total || '0').toLocaleString()}`,
+    products: (o.line_items || []).map((item: any) => `${item.name} × ${item.quantity}`).join(', '),
+    lineItems: (o.line_items || []).map((item: any) => ({
       name: item.name,
       quantity: item.quantity,
-      unitPrice: item.quantity > 0 ? (parseFloat(item.total) / item.quantity) : 0,
-      lineTotal: parseFloat(item.total),
+      unitPrice: item.quantity > 0 ? (parseFloat(item.total || '0') / item.quantity) : 0,
+      lineTotal: parseFloat(item.total || '0'),
       sku: item.sku || null,
     })),
-    subtotal: o.line_items.reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || item.total || '0'), 0),
+    itemCount: (o.line_items || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0),
+    subtotal: (o.line_items || []).reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || item.total || '0'), 0),
     shippingMethod: (o.shipping_lines || [])[0]?.method_title || null,
-    shippingCost: (o.shipping_lines || []).reduce((sum: number, s: any) => sum + parseFloat(s.total || '0'), 0),
-    paymentMethod: o.payment_method_title || o.payment_method || null,
-    placedBy: (o.meta_data || []).find((m: any) => m.key === '_placed_by_rep')?.value || null,
+    shippingCost: (o.shipping_lines || []).reduce((sum: number, item: any) => sum + parseFloat(item.total || '0'), 0),
+    placed_by: (o.meta_data || []).find((m: any) => m.key === '_placed_by_rep')?.value || null,
+    payment_method: o.payment_method_title || o.payment_method || null,
+    billing_country: o.billing?.country || null,
   }))
+
 
   return NextResponse.json(mapped)
 }

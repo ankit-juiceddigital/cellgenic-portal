@@ -33,7 +33,7 @@ export interface NavItem {
  */
 export function useNav() {
   const { user } = useAuth()
-  const { providers, orders, approvals, loading } = usePortal()
+  const { providers, orders, approvals, loading, approvalsLoading } = usePortal()
   // While the first fetch is in flight the arrays are empty, so counts()
   // returns 0 for everything. Rendering that looks like real data — "0
   // urgent, 0 approvals" — which then jumps to the true numbers. Nav
@@ -49,7 +49,7 @@ export function useNav() {
       { key: 'activation', label: 'Activation',     href: '/activation',  icon: 'activation', count: n(c.win) },
       { key: 'clients',    label: 'Active clients', href: '/clients',     icon: 'clients',    count: n(c.act) },
       { key: 'orders',     label: 'Orders',         href: '/orders',      icon: 'orders',     count: n(c.ord) },
-      { key: 'approvals',  label: role === 'sales_rep' ? 'My referrals' : 'Approvals', href: '/approvals', icon: 'approvals', count: n(c.apr) },
+      { key: 'approvals',  label: role === 'sales_rep' ? 'My referrals' : 'Approvals', href: '/approvals', icon: 'approvals', count: approvalsLoading ? null : n(c.apr) },
     ]
 
     const team: NavItem[] = isStaffLead
@@ -75,7 +75,7 @@ export function useNav() {
     // ]
 
     return { operations, team, tools, c, loading }
-  }, [c, role, isStaffLead, loading])
+  }, [c, role, isStaffLead, loading, approvalsLoading])
 }
 
 function NavButton({ item, active }: { item: NavItem; active: boolean }) {
