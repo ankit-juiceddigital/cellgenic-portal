@@ -28,7 +28,7 @@
 // they now open the shared order drawer, same as clicking an order
 // anywhere else in the app. Ask if you'd rather keep the inline expand.
 
-import { useEffect, useState, use } from 'react'
+import { useState, use } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useUI } from '@/lib/ui-context'
@@ -191,8 +191,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
   const clientId = parseInt(resolvedParams.id)
 
   const {
-    byId, ordersFor, loadOrdersFor, isOrdersLoadingFor, isOrdersLoadedFor,
-    loading: portalLoading, revealed, reveal,
+    byId, ordersFor, loading: portalLoading, revealed, reveal,
     advanceStage, extend, assignRep, repNames, reps,
     deactivateAccount, reactivateAccount, busy,
   } = usePortal()
@@ -219,11 +218,6 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
   const [editingClient, setEditingClient] = useState(false)
   const [clientForm, setClientForm] = useState<any>(null)
   const [clientSaved, setClientSaved] = useState(false)
-
-  useEffect(() => {
-    if (!x || x.orders <= 0 || isOrdersLoadedFor(clientId) || isOrdersLoadingFor(clientId)) return
-    loadOrdersFor(clientId).catch(() => {})
-  }, [x, clientId, loadOrdersFor, isOrdersLoadedFor, isOrdersLoadingFor])
 
   const canPlaceOrder = (isRep || isManager || isAdmin) && !awaitingReview
   const canManageAccess = isAdmin || isManager
@@ -574,9 +568,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } | 
 
       {tab === 'orders' && (
         <div className="panel" style={{ marginTop: 12 }}>
-          {isOrdersLoadingFor(clientId) && !isOrdersLoadedFor(clientId) ? (
-            <div className="empty">Loading order history…</div>
-          ) : ords.length ? ords.map(o => {
+          {ords.length ? ords.map(o => {
             const stat = orderStatus(o.status)
             return (
               <button key={o.id} className="li" onClick={() => openDrawer({ kind: 'o', id: o.id })}>

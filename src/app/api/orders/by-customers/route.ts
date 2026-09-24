@@ -14,24 +14,15 @@
 
 import { NextResponse } from 'next/server'
 import { getWordPressUserDetails } from '@/lib/auth'
+import { getOrdersForCustomers, getCallerCached } from '@/lib/server/orders-store'
 
 const WC_URL = process.env.NEXT_PUBLIC_WC_URL
 const WC_KEY = process.env.WC_CONSUMER_KEY
 const WC_SECRET = process.env.WC_CONSUMER_SECRET
 
-async function fetchOrdersForCustomer(customerId: string, headers: Record<string, string>) {
-  let orders: any[] = []
-  const perPage = 100
-  for (let page = 1; page <= 5; page++) {
-    const url = `${WC_URL}/wp-json/wc/v3/orders?customer=${customerId}&per_page=${perPage}&page=${page}&orderby=date&order=desc`
-    const res = await fetch(url, { headers, cache: 'no-store' })
-    if (!res.ok) break
-    const page_orders = await res.json()
-    orders = orders.concat(page_orders)
-    if (page_orders.length < perPage) break
-  }
-  return orders
-}
+// Fetching goes through the shared incremental order store
+// (src/lib/server/orders-store.ts) — same orders, no full re-download on
+// every visit. The per-customer fallback keeps the old 5-page cap.
 
 export async function GET(request: Request) {
   if (!WC_URL || !WC_KEY || !WC_SECRET) {
@@ -55,7 +46,7 @@ export async function GET(request: Request) {
 
   let caller: { role: string }
   try {
-    caller = await getWordPressUserDetails(token)
+    caller = await getCallerCached(token, getWordPressUserDetails)
   } catch {
     return NextResponse.json({ error: 'Invalid or expired session.' }, { status: 401 })
   }
@@ -71,19 +62,10 @@ export async function GET(request: Request) {
     return NextResponse.json([])
   }
 
-  const credentials = Buffer.from(`${WC_KEY}:${WC_SECRET}`).toString('base64')
-  const headers = { Authorization: `Basic ${credentials}` }
-
   const ids = customers.split(',').filter(Boolean)
-  const BATCH_SIZE = 10
 
   try {
-    let allOrders: any[] = []
-    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-      const batch = ids.slice(i, i + BATCH_SIZE)
-      const results = await Promise.all(batch.map(id => fetchOrdersForCustomer(id, headers)))
-      allOrders = allOrders.concat(...results)
-    }
+    const allOrders: any[] = await getOrdersForCustomers(ids, 5)
 
     const mapped = allOrders.map((o: any) => ({
       id: o.id,

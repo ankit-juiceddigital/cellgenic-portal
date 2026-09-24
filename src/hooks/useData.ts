@@ -28,6 +28,7 @@ import {
   getVipClients
 } from '@/lib/woocommerce'
 import { getNotes, saveNote } from '@/lib/notes'
+import { ORDERS_CHANGED_EVENT } from '@/lib/portal-snapshot'
 import type { Note } from '@/types'
 
 // ─────────────────────────────────────────────
@@ -326,6 +327,8 @@ export function usePlaceOrder() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to place order.')
       setSuccess(true)
+      // Tell the portal to refresh its order lists now, not on the next poll.
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event(ORDERS_CHANGED_EVENT))
     } catch (err: any) {
       setError(err.message || 'Failed to place order.')
     } finally {

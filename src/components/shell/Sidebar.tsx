@@ -7,7 +7,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useFilters } from '@/lib/filter-context'
 import { usePortal } from '@/hooks/usePortal'
@@ -33,7 +33,7 @@ export interface NavItem {
  */
 export function useNav() {
   const { user } = useAuth()
-  const { providers, orders, approvals, loading, approvalsLoading } = usePortal()
+  const { providers, orders, approvals, loading } = usePortal()
   // While the first fetch is in flight the arrays are empty, so counts()
   // returns 0 for everything. Rendering that looks like real data — "0
   // urgent, 0 approvals" — which then jumps to the true numbers. Nav
@@ -49,7 +49,7 @@ export function useNav() {
       { key: 'activation', label: 'Activation',     href: '/activation',  icon: 'activation', count: n(c.win) },
       { key: 'clients',    label: 'Active clients', href: '/clients',     icon: 'clients',    count: n(c.act) },
       { key: 'orders',     label: 'Orders',         href: '/orders',      icon: 'orders',     count: n(c.ord) },
-      { key: 'approvals',  label: role === 'sales_rep' ? 'My referrals' : 'Approvals', href: '/approvals', icon: 'approvals', count: approvalsLoading ? null : n(c.apr) },
+      { key: 'approvals',  label: role === 'sales_rep' ? 'My referrals' : 'Approvals', href: '/approvals', icon: 'approvals', count: n(c.apr) },
     ]
 
     const team: NavItem[] = isStaffLead
@@ -75,7 +75,7 @@ export function useNav() {
     // ]
 
     return { operations, team, tools, c, loading }
-  }, [c, role, isStaffLead, loading, approvalsLoading])
+  }, [c, role, isStaffLead, loading])
 }
 
 function NavButton({ item, active }: { item: NavItem; active: boolean }) {
@@ -90,16 +90,55 @@ function NavButton({ item, active }: { item: NavItem; active: boolean }) {
 
 // Compact, always-visible referral link for the current user — separate
 // from the full /referral page (stats, QR code, share options). Renders
-// nothing while loading or if this account has no rep code yet (e.g.
-// administrators), so it never shows a broken/empty state in the nav.
-function SidebarReferralLink() {
-  const { data, loading, error } = useMyReferralStats()
-  const [copied, setCopied] = useState(false)
+// nothing if this account has no rep code (e.g. administrators), so it
+// never shows a broken/empty state in the nav.
+//
+// Made resilient: previously a single failed /my-referral-stats request
+// (a slow or rate-limited WordPress moment on page load) hid the link
+// for the whole session with no retry. Now it:
+//   1. shows the last good link instantly (kept per user in
+//      sessionStorage, wiped on logout with the portal snapshot),
+//   2. retries a failed request a few times,
+//   3. and if it still can't load, builds the link from the rep code
+//      already in the session — same format as EditRepModal.
+const REF_RETRY_DELAYS = [2000, 5000, 15000]
+const refCacheKey = (userId?: number) => (userId ? `cg_portal_snap:ref:${userId}` : null)
 
-  if (loading || error || !data?.referral_url) return null
+function readCachedRef(key: string | null): string | null {
+  if (!key || typeof window === 'undefined') return null
+  try { return window.sessionStorage.getItem(key) } catch { return null }
+}
+
+function SidebarReferralLink() {
+  const { user } = useAuth()
+  const { data, error, refetch } = useMyReferralStats()
+  const [copied, setCopied] = useState(false)
+  const cacheKey = refCacheKey(user?.userId)
+  const [cached, setCached] = useState<string | null>(() => readCachedRef(cacheKey))
+  const attempts = useRef(0)
+
+  // Remember a good link.
+  useEffect(() => {
+    if (!data?.referral_url || !cacheKey) return
+    setCached(data.referral_url)
+    try { window.sessionStorage.setItem(cacheKey, data.referral_url) } catch { /* ignore */ }
+  }, [data?.referral_url, cacheKey])
+
+  // Retry transient failures. "No rep code" is a real answer, not a failure.
+  const noRepCode = Boolean(error && /no rep code/i.test(error))
+  useEffect(() => {
+    if (!error || noRepCode || attempts.current >= REF_RETRY_DELAYS.length) return
+    const t = setTimeout(() => { attempts.current++; refetch() }, REF_RETRY_DELAYS[attempts.current])
+    return () => clearTimeout(t)
+  }, [error, noRepCode, refetch])
+
+  const fallback = user?.repCode ? `cellgenic.com/register/?rep=${user.repCode}` : null
+  const url = noRepCode ? null : (data?.referral_url || cached || (error ? fallback : null))
+
+  if (!url) return null
 
   const handleCopy = () => {
-    navigator.clipboard.writeText('https://' + data.referral_url)
+    navigator.clipboard.writeText('https://' + url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -108,7 +147,7 @@ function SidebarReferralLink() {
     <div>
       <p className="navsec">Your referral link</p>
       <div className="refbox">
-        <span className="mono">{data.referral_url}</span>
+        <span className="mono">{url}</span>
         <button onClick={handleCopy} title="Copy referral link">
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </button>

@@ -130,7 +130,7 @@ function formatSubmitted(date: Date) {
 
 export default function ApprovalsPage() {
   const router = useRouter()
-  const { approvals, loading, approvalsLoading, error, refetch, approve, reject, busy } = usePortal()
+  const { approvals, loading, error, refetch, approve, reject, busy } = usePortal()
   const { openDrawer, toast } = useUI()
   const { user } = useAuth()
   const isRep = user?.role === 'sales_rep'
@@ -165,7 +165,7 @@ export default function ApprovalsPage() {
         </div>
       </div>
 
-      {(loading || approvalsLoading) && (
+      {loading && (
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2].map(i => (
             <div key={i} className="h-[500px] animate-pulse rounded-2xl border border-gray-200 bg-white" />
@@ -173,7 +173,7 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      {error && !loading && !approvalsLoading && (
+      {error && !loading && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
           <p className="text-sm font-medium text-red-700">Could not load requests</p>
           <p className="mt-1 text-sm text-red-600">{error}</p>
@@ -181,7 +181,7 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      {!loading && !approvalsLoading && !error && filteredApprovals.length === 0 && (
+      {!loading && !error && filteredApprovals.length === 0 && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
           <CheckCircle size={24} className="mx-auto mb-2 text-green-500" />
           <p className="text-sm font-medium text-green-700">
@@ -190,7 +190,7 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      {!loading && !approvalsLoading && !error && filteredApprovals.length > 0 && (
+      {!loading && !error && filteredApprovals.length > 0 && (
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredApprovals.map(a => (
             <article

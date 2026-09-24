@@ -21,34 +21,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  // On mount, restore the locally saved session immediately so protected
-  // pages can start rendering/fetching without waiting on a separate WP
-  // validation round trip. The token is still validated in the background,
-  // and every protected API call independently verifies it server-side.
+  // On mount — restore session from localStorage immediately, and
+  // validate the token in the background rather than blocking on it.
+  //
+  // The previous version awaited validateToken() (a round trip to
+  // WordPress's jwt-auth/v1/token/validate) before setting `user` or
+  // flipping `loading` false — and ProtectedRoute renders NOTHING
+  // until `loading` is false, so every single page load, even a plain
+  // refresh, paid that ~2s network round trip as pure blank-screen
+  // time before the rest of the app could even start fetching data.
+  // The token is almost always still valid within a session, so we now
+  // trust the cached session optimistically and only react if
+  // validation comes back negative.
   useEffect(() => {
-    let cancelled = false
-
-    async function restoreSession() {
-      const stored = getSession()
-      if (!stored) {
-        setLoading(false)
-        return
-      }
-
-      setUser(stored)
+    const stored = getSession()
+    if (!stored) {
       setLoading(false)
-
-      const valid = await validateToken(stored.token)
-      if (!valid && !cancelled) {
-        clearSession()
-        setUser(null)
-        router.replace('/auth/login')
-      }
+      return
     }
 
-    restoreSession()
-    return () => { cancelled = true }
-  }, [router])
+    setUser(stored)
+    setLoading(false)
+
+    validateToken(stored.token).then(valid => {
+      if (!valid) {
+        // Token actually expired — clear and bounce to login.
+        clearSession()
+        setUser(null)
+        router.push('/auth/login')
+      }
+    })
+  }, [])
 
   const login = (userData: AuthUser) => {
     saveSession(userData)

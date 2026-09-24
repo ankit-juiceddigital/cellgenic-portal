@@ -6,7 +6,7 @@ import { useFilters } from '@/lib/filter-context'
 import { useUI } from '@/lib/ui-context'
 import { usePortal } from '@/hooks/usePortal'
 import {
-  activationRate, counts, money, sortProviders,
+  activationRate, billedThisMonth, counts, money, sortProviders,
 } from '@/lib/portal-model'
 import { FlatProviderTable } from '@/components/ui/ProviderTable'
 
@@ -25,10 +25,7 @@ function Stat({
 }
 
 export default function OverviewPage() {
-  const {
-    providers, approvals, loading, error, refetch,
-    dashboardBilledThisMonth, dashboardSummaryLoading, approvalsLoading,
-  } = usePortal()
+  const { providers, orders, approvals, loading, ordersLoading, error, refetch } = usePortal()
   const { goWithAlert, sortKey, sortDir } = useFilters()
   const { toast } = useUI()
 
@@ -59,12 +56,9 @@ export default function OverviewPage() {
     )
   }
 
-  // Overview never needs the full WooCommerce order payload. Client order
-  // counts/revenue come from the lightweight cached provider records, and
-  // the current-month billed number arrives from a tiny aggregate endpoint.
-  const c = counts(providers, [], approvals)
+  const c = counts(providers, orders, approvals)
   const rate = activationRate(providers)
-  const billed = dashboardBilledThisMonth
+  const billed = billedThisMonth(orders)
 
   // "Your day" = everything urgent, plus anything closing soon that has
   // nobody working it. Same rule as the design.
@@ -103,9 +97,9 @@ export default function OverviewPage() {
               onClick={() => goWithAlert('/activation', 'norep')} />
         <Stat cls="good" value={String(rate)} unit="%" label="30-day activation rate"
               onClick={() => goWithAlert('/clients')} />
-        <Stat value={dashboardSummaryLoading || billed === null ? '…' : money(billed)} label="Billed this month"
+        <Stat value={ordersLoading ? '…' : money(billed)} label="Billed this month"
               onClick={() => goWithAlert('/orders')} />
-        <Stat value={approvalsLoading ? '…' : String(c.apr)} label="Requests to approve"
+        <Stat value={String(c.apr)} label="Requests to approve"
               onClick={() => goWithAlert('/approvals')} />
       </div>
 

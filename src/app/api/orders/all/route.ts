@@ -24,11 +24,13 @@
 
 import { NextResponse } from 'next/server'
 import { getWordPressUserDetails } from '@/lib/auth'
+import {
+  getAllOrdersUnrestricted, getOrdersForCustomers, getCallerCached, getMyClientIdsCached,
+} from '@/lib/server/orders-store'
 
 const WC_URL = process.env.NEXT_PUBLIC_WC_URL
 const WC_KEY = process.env.WC_CONSUMER_KEY
 const WC_SECRET = process.env.WC_CONSUMER_SECRET
-const WP_URL = process.env.NEXT_PUBLIC_WP_URL
 
 function mapOrder(o: any) {
   return {
@@ -65,53 +67,11 @@ function mapOrder(o: any) {
   }
 }
 
-async function fetchOrdersForCustomer(customerId: string, headers: Record<string, string>) {
-  let orders: any[] = []
-  const perPage = 100
-  for (let page = 1; page <= 5; page++) {
-    const url = `${WC_URL}/wp-json/wc/v3/orders?customer=${customerId}&per_page=${perPage}&page=${page}&orderby=date&order=desc`
-    const res = await fetch(url, { headers, cache: 'no-store' })
-    if (!res.ok) break // skip this customer on error rather than failing the whole page
-    const page_orders = await res.json()
-    orders = orders.concat(page_orders)
-    if (page_orders.length < perPage) break
-  }
-  return orders
-}
-
-async function fetchAllCustomerOrders(ids: string[], headers: Record<string, string>) {
-  const BATCH_SIZE = 10
-  let allOrders: any[] = []
-  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-    const batch = ids.slice(i, i + BATCH_SIZE)
-    const results = await Promise.all(batch.map(id => fetchOrdersForCustomer(id, headers)))
-    allOrders = allOrders.concat(...results)
-  }
-  return allOrders
-}
-
-// Attempts a truly unfiltered listing — every order on the store,
-// regardless of whether it's tied to a known provider account. Returns
-// null (rather than throwing) if the WC key doesn't have permission for
-// this, so the caller can fall back cleanly.
-async function tryFetchUnrestricted(headers: Record<string, string>): Promise<any[] | null> {
-  let allOrders: any[] = []
-  const perPage = 100
-  for (let page = 1; page <= 20; page++) { // cap at 2000 orders per request
-    const url = `${WC_URL}/wp-json/wc/v3/orders?per_page=${perPage}&page=${page}&orderby=date&order=desc`
-    const res = await fetch(url, { headers, cache: 'no-store' })
-    if (!res.ok) {
-      // 401/403 here typically means the WC key isn't permitted to list
-      // the full collection unfiltered — signal "not available" so the
-      // caller falls back instead of erroring the whole page out.
-      return allOrders.length > 0 ? allOrders : null
-    }
-    const page_orders = await res.json()
-    allOrders = allOrders.concat(page_orders)
-    if (page_orders.length < perPage) break
-  }
-  return allOrders
-}
+// Fetching is delegated to the shared order store — see
+// src/lib/server/orders-store.ts. It keeps an incremental in-memory copy
+// (full download once, then only "what changed since" per request), so
+// this route answers in milliseconds while still returning new/updated
+// orders on every call. Same two modes, same fallback, same output.
 
 export async function GET(request: Request) {
   if (!WC_URL || !WC_KEY || !WC_SECRET) {
@@ -137,7 +97,7 @@ export async function GET(request: Request) {
 
   let caller: { role: string; repCode?: string | null }
   try {
-    caller = await getWordPressUserDetails(token)
+    caller = await getCallerCached(token, getWordPressUserDetails)
   } catch {
     return NextResponse.json({ error: 'Invalid or expired session.' }, { status: 401 })
   }
@@ -151,12 +111,7 @@ export async function GET(request: Request) {
     // platform" mode, no matter what the query string says.
     mode = null
 
-    const myClientsRes = await fetch(`${WP_URL}/wp-json/cellgenic/v1/portal-clients`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    })
-    const myClientsPayload = myClientsRes.ok ? await myClientsRes.json() : { clients: [] }
-    const myClientIds = new Set((myClientsPayload.clients || []).map((c: any) => String(c.id)))
+    const myClientIds = await getMyClientIdsCached(token)
 
     // Intersect whatever was requested with the rep's ACTUAL clients —
     // any ID that isn't verifiably theirs is silently dropped rather
@@ -166,15 +121,12 @@ export async function GET(request: Request) {
     customers = verified.length > 0 ? verified.join(',') : Array.from(myClientIds).join(',')
   }
 
-  const credentials = Buffer.from(`${WC_KEY}:${WC_SECRET}`).toString('base64')
-  const headers = { Authorization: `Basic ${credentials}` }
-
   try {
     let rawOrders: any[] | null = null
     let usedFallback = false
 
     if (mode === 'all') {
-      rawOrders = await tryFetchUnrestricted(headers)
+      rawOrders = await getAllOrdersUnrestricted()
     }
 
     if (rawOrders === null) {
@@ -187,7 +139,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ orders: [], usedFallback: true })
       }
       const ids = customers.split(',').filter(Boolean)
-      rawOrders = await fetchAllCustomerOrders(ids, headers)
+      rawOrders = await getOrdersForCustomers(ids)
     }
 
     const mapped = rawOrders.map(mapOrder)

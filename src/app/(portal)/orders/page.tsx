@@ -5,7 +5,7 @@
 // scopes reps to their own clients server-side, so there is no
 // client-side filtering to trust here.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useFilters } from '@/lib/filter-context'
 import { useUI } from '@/lib/ui-context'
 import { usePortal } from '@/hooks/usePortal'
@@ -16,19 +16,10 @@ import { ChevronRight } from '@/components/ui/Icons'
 const CLOSED = ['completed', 'cancelled', 'refunded', 'failed']
 
 export default function OrdersPage() {
-  const {
-    orders, providers, loading, error,
-    ordersLoading, ordersError, ordersLoaded, loadOrders,
-  } = usePortal()
+  const { orders, providers, loading, error, refetch } = usePortal()
   const { openDrawer } = useUI()
   const { term } = useFilters()
   const [statusFilter, setStatusFilter] = useState<'active' | 'all'>('active')
-
-  useEffect(() => {
-    if (!loading && !ordersLoaded && !ordersLoading) {
-      loadOrders().catch(() => {})
-    }
-  }, [loading, ordersLoaded, ordersLoading, loadOrders])
 
   const rows = useMemo(() => {
     let list = orders
@@ -44,13 +35,13 @@ export default function OrdersPage() {
   const total = orders.reduce((a, b) => a + b.total, 0)
   const inProgress = orders.filter(o => !CLOSED.includes(o.status)).length
 
-  if (error || ordersError) {
+  if (error) {
     return (
       <div className="panel">
         <div className="empty">
-          <b>Could not load orders</b>{ordersError || error}
+          <b>Could not load orders</b>{error}
           <div style={{ marginTop: 14 }}>
-            <button className="btn btn-sm" onClick={() => loadOrders(true).catch(() => {})}>Try again</button>
+            <button className="btn btn-sm" onClick={() => refetch()}>Try again</button>
           </div>
         </div>
       </div>
@@ -98,7 +89,7 @@ export default function OrdersPage() {
           <span className="c">{rows.length}</span>
         </div>
 
-        {loading || ordersLoading || !ordersLoaded ? (
+        {loading ? (
           <div className="empty">Loading orders…</div>
         ) : rows.length ? rows.map(o => {
           const stat = orderStatus(o.status)

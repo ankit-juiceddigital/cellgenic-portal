@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import { getWordPressUserDetails } from '@/lib/auth'
+import { upsertOrder } from '@/lib/server/orders-store'
 
 const WP_URL = process.env.NEXT_PUBLIC_WP_URL
 
@@ -103,6 +104,10 @@ export async function POST(request: Request) {
         { status: res.status }
       )
     }
+
+    // Visible in the portal's order lists immediately — no waiting for
+    // the next sync.
+    upsertOrder(data)
 
     return NextResponse.json({ success: true, orderId: data.id, orderNumber: data.number })
   } catch (err: any) {

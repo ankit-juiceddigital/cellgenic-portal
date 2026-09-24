@@ -1,6 +1,8 @@
 // File: src/lib/auth.ts
 // Full auth helpers — login, session, cookies, token validation
 
+import { clearPortalSnapshots } from '@/lib/portal-snapshot'
+
 const WP_URL = process.env.NEXT_PUBLIC_WP_URL
 
 export interface AuthUser {
@@ -134,6 +136,9 @@ export function getSession(): AuthUser | null {
 export function clearSession() {
   if (typeof window === 'undefined') return
   localStorage.removeItem(SESSION_KEY)
+  // Drop the portal's cached data too — the next person on this browser
+  // must never see the previous user's clients/orders, even for a frame.
+  clearPortalSnapshots()
   // Clear cookies
   document.cookie = 'cellgenic_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'
   document.cookie = 'cellgenic_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'

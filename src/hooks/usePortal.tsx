@@ -17,6 +17,9 @@ import {
 import { useAuth } from '@/lib/auth-context'
 import * as api from '@/lib/api'
 import {
+  ORDERS_CHANGED_EVENT, readSnap, snapKey, writeSnap, type Snapshot,
+} from '@/lib/portal-snapshot'
+import {
   countryName, enrich, parseDate, PER_PAGE, STAGE,
 } from '@/lib/portal-model'
 import type {
@@ -46,7 +49,7 @@ function mapProvider(r: any): Provider {
     stage: (r.stage || 'new') as Stage,
     vip: Boolean(r.vip),
     tag: r.tag || null,
-    accountStatus: String(r.account_status || 'approved').toLowerCase(),
+    accountStatus: r.account_status || 'approved',
     extendedDays: Number(r.window_extra_days || 0),
     // filled by enrich()
     elapsed: 0, left: 0, closes: null, bucket: 'ok',
@@ -104,8 +107,6 @@ function mapApproval(r: any): Approval {
     p: r.phone || '',
     c: r.country || '—',
     cc: '', // /pending-providers returns a country NAME, not a code — see plan
-    state: r.state || null,
-    city: r.city || null,
     req: parseDate(r.submitted) || new Date(),
     note,
     doc: r.has_document ? 'Verification document on file' : 'No documents uploaded',
@@ -119,15 +120,31 @@ function mapApproval(r: any): Approval {
     pillars: r.pillars || null,
     investment: r.investment || null,
     message: r.message || null,
-    source: r.source === 'colombia_webinar' ? 'colombia_webinar' : 'become_provider',
-    applicationReference: r.reference || null,
-    consentAt: r.consent_at || null,
-    offerCode: r.offer_code || null,
-    offerPercent: r.offer_percent ? Number(r.offer_percent) : null,
-    offerHeldAt: r.offer_held_at || null,
-    offerDeadline: r.offer_deadline || null,
-    offerWithinWindow: Boolean(r.offer_within_window),
+    // Fields the Approvals page / drawer read. Snake_case is what the
+    // cellgenic/v1 endpoints return; camelCase is accepted too.
+    //
+    // `source` is the important one: the page filters on it, so a
+    // missing value used to hide EVERY pending approval. Anything that
+    // isn't explicitly a Colombia Webinar application is treated as
+    // Become a Provider (the original, default application type).
+    source: normalizeSource(r.source ?? r.application_source ?? r.applicationSource ?? r.form_source),
+    state: r.state || r.department || null,
+    city: r.city || null,
+    applicationReference: r.application_reference || r.applicationReference || r.reference || null,
+    consentAt: r.consent_at || r.consentAt || null,
+    offerCode: r.offer_code || r.offerCode || null,
+    offerPercent: r.offer_percent != null || r.offerPercent != null
+      ? Number(r.offer_percent ?? r.offerPercent) || null
+      : null,
+    offerHeldAt: r.offer_held_at || r.offerHeldAt || null,
+    offerDeadline: r.offer_deadline || r.offerDeadline || null,
+    offerWithinWindow: Boolean(r.offer_within_window ?? r.offerWithinWindow),
   }
+}
+
+function normalizeSource(v: unknown): Approval['source'] {
+  const s = String(v || '').toLowerCase()
+  return /colombia|webinar/.test(s) ? 'colombia_webinar' : 'become_provider'
 }
 
 function mapRep(r: any): Rep {
@@ -156,24 +173,14 @@ interface PortalValue {
   reps: Rep[]
   repNames: string[]
   loading: boolean
-  error: string | null
   ordersLoading: boolean
-  ordersError: string | null
-  ordersLoaded: boolean
-  dashboardBilledThisMonth: number | null
-  dashboardSummaryLoading: boolean
-  approvalsLoading: boolean
-  repsLoading: boolean
+  error: string | null
   revealed: Set<number>
   revealCount: number
   refetch: (opts?: { silent?: boolean }) => void
 
   byId: (id: number) => Provider | undefined
   ordersFor: (providerId: number) => Order[]
-  loadOrders: (force?: boolean) => Promise<void>
-  loadOrdersFor: (providerId: number, force?: boolean) => Promise<void>
-  isOrdersLoadingFor: (providerId: number) => boolean
-  isOrdersLoadedFor: (providerId: number) => boolean
 
   reveal: (providerId: number) => Promise<void>
   advanceStage: (providerId: number) => Promise<void>
@@ -189,35 +196,97 @@ interface PortalValue {
 
 const PortalContext = createContext<PortalValue | null>(null)
 
+/** Background refreshes closer together than this are skipped. */
+const SILENT_MIN_GAP_MS = 30 * 1000
+
 export function PortalProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const token = user?.token
   const isAdmin = user?.role === 'administrator'
 
-  const [providers, setProviders] = useState<Provider[]>([])
-  const [orders, setOrders] = useState<Order[]>([])
-  const [approvals, setApprovals] = useState<Approval[]>([])
-  const [reps, setReps] = useState<Rep[]>([])
+  const key = snapKey(user?.userId, user?.role)
+  // Read once, on mount. PortalProvider only mounts client-side after
+  // auth has resolved (ProtectedRoute), so `window` is always available.
+  const [initialSnap] = useState<Snapshot | null>(() => readSnap(key))
+  const hasClientsSnap = Boolean(initialSnap?.clients)
+  const hasOrdersSnap = Boolean(initialSnap?.orders)
+
+  const [providers, setProviders] = useState<Provider[]>(
+    () => (initialSnap?.clients ? enrich(initialSnap.clients.map(mapProvider)) : []))
+  const [orders, setOrders] = useState<Order[]>(
+    () => (initialSnap?.orders ? initialSnap.orders.map(mapOrder) : []))
+  const [approvals, setApprovals] = useState<Approval[]>(
+    () => (initialSnap?.approvals ? initialSnap.approvals.map(mapApproval) : []))
+  const [reps, setReps] = useState<Rep[]>(
+    () => (initialSnap?.reps ? initialSnap.reps.map(mapRep) : []))
   const [revealed, setRevealed] = useState<Set<number>>(new Set())
-  const [revealCount, setRevealCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [revealCount, setRevealCount] = useState(initialSnap?.revealCount || 0)
+  const [loading, setLoading] = useState(!hasClientsSnap)
+  const [ordersLoading, setOrdersLoading] = useState(!hasOrdersSnap)
   const [error, setError] = useState<string | null>(null)
-  const [ordersLoading, setOrdersLoading] = useState(false)
-  const [ordersError, setOrdersError] = useState<string | null>(null)
-  const [ordersLoaded, setOrdersLoaded] = useState(false)
-  const [clientOrdersLoading, setClientOrdersLoading] = useState<Set<number>>(new Set())
-  const [clientOrdersLoaded, setClientOrdersLoaded] = useState<Set<number>>(new Set())
-  const [dashboardBilledThisMonth, setDashboardBilledThisMonth] = useState<number | null>(null)
-  const [dashboardSummaryLoading, setDashboardSummaryLoading] = useState(false)
-  const [approvalsLoading, setApprovalsLoading] = useState(true)
-  const [repsLoading, setRepsLoading] = useState(true)
   const [busy, setBusy] = useState<number | null>(null)
   const [tick, setTick] = useState(0)
   // Read by the load effect on the next run, then reset. A ref rather
   // than state so setting it can't trigger a render of its own.
   const silentRef = useRef(false)
+  // Remembers which parts are already showing, so a silent load can
+  // still clear a spinner for a part the snapshot didn't cover.
+  const ordersShownRef = useRef(hasOrdersSnap)
+
+  // Client IDs from the most recent load — lets the orders-only refresh
+  // below skip re-fetching the client list.
+  const lastIdsRef = useRef<number[]>(initialSnap?.clients?.map((c: any) => c.id) || [])
+  const ordersBusyRef = useRef(false)
+  const ordersPendingRef = useRef(false)
+
+  /**
+   * Orders only, always silent. Much cheaper than a full refetch: one
+   * request, which the server answers from its incremental store after
+   * asking WooCommerce "what changed?". Used by the 60s poll and right
+   * after the portal places an order.
+   */
+  const refreshOrders = useCallback(async (): Promise<void> => {
+    if (!token || (!lastIdsRef.current.length && !isAdmin)) return
+    // One at a time — but if asked again mid-flight (e.g. a multi-product
+    // order placing several orders back to back), run once more after,
+    // so the last order is never missed.
+    if (ordersBusyRef.current) { ordersPendingRef.current = true; return }
+    ordersBusyRef.current = true
+    try {
+      const res = await api.getAllOrders(token, lastIdsRef.current, Boolean(isAdmin))
+      const raw = res.orders || []
+      setOrders(raw.map(mapOrder))
+      ordersShownRef.current = true
+      setOrdersLoading(false)
+      writeSnap(key, { orders: raw })
+    } catch {
+      /* keep last-good orders on screen */
+    } finally {
+      ordersBusyRef.current = false
+      if (ordersPendingRef.current) {
+        ordersPendingRef.current = false
+        refreshOrdersRef.current?.()
+      }
+    }
+  }, [token, isAdmin, key])
+  const refreshOrdersRef = useRef<(() => Promise<void>) | null>(null)
+  refreshOrdersRef.current = refreshOrders
+
+  // When the last full load started, and whether one is still running.
+  // Background (silent) refreshes use these to avoid piling up: tab
+  // focus + visibilitychange fire together on return, and each used to
+  // start a complete reload while the previous one was still in flight
+  // — every request duplicated, against a WordPress that is already
+  // slow per request.
+  const lastLoadAtRef = useRef(0)
+  const loadInFlightRef = useRef(false)
 
   const refetch = useCallback((opts?: { silent?: boolean }) => {
+    if (opts?.silent) {
+      if (loadInFlightRef.current) return
+      if (Date.now() - lastLoadAtRef.current < SILENT_MIN_GAP_MS) return
+    }
+    // Explicit refetches ("Try again", after approve/reactivate) always run.
     silentRef.current = Boolean(opts?.silent)
     setTick(t => t + 1)
   }, [])
@@ -226,73 +295,94 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     if (!token) return
     let cancelled = false
 
-    // A silent run keeps whatever is on screen while it refreshes.
-    const silent = silentRef.current
+    // A silent run keeps whatever is on screen while it refreshes. When a
+    // snapshot is already painted, the very first load (tick 0) is silent
+    // too — it refreshes in place instead of flashing back to skeletons.
+    const silent = silentRef.current || (hasClientsSnap && tick === 0)
     silentRef.current = false
 
     async function load() {
+      lastLoadAtRef.current = Date.now()
+      loadInFlightRef.current = true
       if (!silent) setLoading(true)
+      if (!silent) setOrdersLoading(true)
       setError(null)
+
       try {
-        // The only request that blocks the first usable render is the
-        // lightweight portal-client list. Full WooCommerce order history
-        // is intentionally NOT fetched here; that was the main source of
-        // slow first-paint times because admins could download thousands
-        // of complete orders before the Overview was allowed to render.
+        // Clients first — the orders call needs their IDs for the
+        // non-admin (per-customer) path.
         const clientsRes = await api.getPortalClients(token!)
         if (cancelled) return
         const mapped = enrich(clientsRes.clients.map(mapProvider))
         setProviders(mapped)
+        writeSnap(key, { clients: clientsRes.clients })
 
-        // The portal can render now. Everything below is secondary and
-        // must never keep the main dashboard behind a loading screen.
-        if (!silent) setLoading(false)
+        // Everything the shell/Dashboard/Activation/Clients pages need is
+        // in `providers` now — unblock the UI here rather than waiting
+        // for orders too. Only the Orders page actually needs them, so
+        // they must not hold the rest of the app on a spinner.
+        if (!cancelled) setLoading(false)
 
-        setDashboardSummaryLoading(true)
-        setApprovalsLoading(true)
-        setRepsLoading(true)
-        const [approvalsRes, repsRes, revealRes, summaryRes] = await Promise.allSettled([
+        const ids = mapped.map(p => p.id)
+        lastIdsRef.current = ids
+
+        // Orders run on their own track with their own loading flag —
+        // Orders page reads `ordersLoading`, nothing else waits on this.
+        // The server keeps an incrementally-synced copy, so this is fast
+        // and always includes new orders.
+        api.getAllOrders(token!, ids, Boolean(isAdmin))
+          .then(res => {
+            if (cancelled) return
+            const raw = res.orders || []
+            setOrders(raw.map(mapOrder))
+            ordersShownRef.current = true
+            setOrdersLoading(false)
+            writeSnap(key, { orders: raw })
+          })
+          .catch(() => { /* degrade silently — Orders page keeps last-good data */ })
+          .finally(() => {
+            // Clear the spinner unless a silent run already has data up.
+            if (!cancelled && (!silent || !ordersShownRef.current)) setOrdersLoading(false)
+          })
+
+        // The rest, still in parallel, still non-blocking for `loading` —
+        // any one of them failing degrades that section rather than
+        // blanking the page — a rep hitting 403 on /reps must still see
+        // their own clients. Started AFTER clients (as originally) so the
+        // page load doesn't hit WordPress with every request at once.
+        const [approvalsRes, repsRes, revealRes] = await Promise.allSettled([
           api.getPendingProviders(token!),
           isAdmin || user?.role === 'sales_manager' ? api.getReps(token!) : Promise.resolve([]),
           api.getRevealCount(token!),
-          api.getDashboardSummary(token!, mapped.map(p => p.id), Boolean(isAdmin)),
         ])
         if (cancelled) return
 
         if (approvalsRes.status === 'fulfilled') {
           setApprovals((approvalsRes.value || []).map(mapApproval))
+          writeSnap(key, { approvals: approvalsRes.value || [] })
         }
-        setApprovalsLoading(false)
         if (repsRes.status === 'fulfilled') {
           setReps(((repsRes.value as any[]) || []).map(mapRep))
+          writeSnap(key, { reps: (repsRes.value as any[]) || [] })
         }
-        setRepsLoading(false)
         if (revealRes.status === 'fulfilled') {
           setRevealCount(revealRes.value.today || 0)
+          writeSnap(key, { revealCount: revealRes.value.today || 0 })
         }
-        if (summaryRes.status === 'fulfilled') {
-          setDashboardBilledThisMonth(Number(summaryRes.value.billed_this_month || 0))
-        }
-        setDashboardSummaryLoading(false)
       } catch (err: any) {
         // A failed background refresh must not replace a working screen
         // with an error panel — keep showing the last good data.
         if (!cancelled && !silent) setError(err.message || 'Could not load the portal data.')
+        if (!cancelled && !silent) setLoading(false)
+        if (!cancelled && !silent) setOrdersLoading(false)
       } finally {
-        if (!cancelled) {
-          if (!silent) setLoading(false)
-          setDashboardSummaryLoading(false)
-          // If a secondary request threw before its settled result was handled,
-          // do not leave a section showing a permanent spinner.
-          setApprovalsLoading(false)
-          setRepsLoading(false)
-        }
+        loadInFlightRef.current = false
       }
     }
 
     load()
     return () => { cancelled = true }
-  }, [token, isAdmin, user?.role, tick])
+  }, [token, isAdmin, user?.role, tick, key, hasClientsSnap])
 
   // ── keeping it fresh without flicker ──
   // Two triggers, both silent: coming back to the tab, and a slow poll
@@ -314,71 +404,29 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       if (document.visibilityState === 'visible') refetch({ silent: true })
     }, 3 * 60 * 1000)
 
+    // Orders get their own, faster lane: every 60s on a visible tab.
+    // Cheap, because the server only asks WooCommerce what changed — so
+    // a new storefront order shows up within about a minute without
+    // anyone touching the page.
+    const ordersTimer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      // A full load that just ran already fetched orders.
+      if (loadInFlightRef.current || Date.now() - lastLoadAtRef.current < SILENT_MIN_GAP_MS) return
+      refreshOrders()
+    }, 60 * 1000)
+
+    // Placed from inside the portal → refresh immediately.
+    const onOrdersChanged = () => { refreshOrders() }
+    window.addEventListener(ORDERS_CHANGED_EVENT, onOrdersChanged)
+
     return () => {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisible)
       clearInterval(timer)
+      clearInterval(ordersTimer)
+      window.removeEventListener(ORDERS_CHANGED_EVENT, onOrdersChanged)
     }
-  }, [token, refetch])
-
-  // ── lazy WooCommerce order loading ──
-  // Full order history is intentionally opt-in. Overview/Clients/Activation
-  // render from the cached WordPress client totals and do not pay the cost
-  // of downloading line items, billing data and metadata they never display.
-  const loadOrders = useCallback(async (force = false) => {
-    if (!token || ordersLoading) return
-    if (ordersLoaded && !force) return
-
-    setOrdersLoading(true)
-    setOrdersError(null)
-    try {
-      const ids = providers.map(p => p.id)
-      const res = await api.getAllOrders(token, ids, Boolean(isAdmin))
-      setOrders((res.orders || []).map(mapOrder))
-      setOrdersLoaded(true)
-      // A full history supersedes any per-client partial caches.
-      setClientOrdersLoaded(new Set(ids))
-    } catch (err: any) {
-      setOrdersError(err.message || 'Could not load orders.')
-      throw err
-    } finally {
-      setOrdersLoading(false)
-    }
-  }, [token, providers, isAdmin, ordersLoading, ordersLoaded])
-
-  const loadOrdersFor = useCallback(async (providerId: number, force = false) => {
-    if (!token || !providerId) return
-    if (ordersLoaded && !force) return
-    if (clientOrdersLoading.has(providerId)) return
-    if (clientOrdersLoaded.has(providerId) && !force) return
-
-    setClientOrdersLoading(prev => new Set(prev).add(providerId))
-    try {
-      const res = await api.getClientOrders(token, providerId)
-      const mapped = (res || []).map((r: any) => mapOrder({ ...r, customer_id: r.customer_id ?? providerId }))
-      setOrders(prev => {
-        const withoutClient = prev.filter(o => o.customerId !== providerId)
-        return [...withoutClient, ...mapped]
-      })
-      setClientOrdersLoaded(prev => new Set(prev).add(providerId))
-    } finally {
-      setClientOrdersLoading(prev => {
-        const next = new Set(prev)
-        next.delete(providerId)
-        return next
-      })
-    }
-  }, [token, ordersLoaded, clientOrdersLoading, clientOrdersLoaded])
-
-  const isOrdersLoadingFor = useCallback(
-    (providerId: number) => ordersLoading || clientOrdersLoading.has(providerId),
-    [ordersLoading, clientOrdersLoading],
-  )
-
-  const isOrdersLoadedFor = useCallback(
-    (providerId: number) => ordersLoaded || clientOrdersLoaded.has(providerId),
-    [ordersLoaded, clientOrdersLoaded],
-  )
+  }, [token, refetch, refreshOrders])
 
   // ── derived ──
   const repNames = useMemo(() => {
@@ -532,17 +580,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PortalValue>(() => ({
     providers, orders, approvals, reps, repNames,
-    loading, error, ordersLoading, ordersError, ordersLoaded,
-    dashboardBilledThisMonth, dashboardSummaryLoading, approvalsLoading, repsLoading,
-    revealed, revealCount, refetch,
-    byId, ordersFor, loadOrders, loadOrdersFor, isOrdersLoadingFor, isOrdersLoadedFor,
+    loading, ordersLoading, error, revealed, revealCount, refetch,
+    byId, ordersFor,
     reveal, advanceStage, setStage: setStageFn, extend, assignRep, approve, reject,
     deactivateAccount, reactivateAccount, busy,
   }), [
-    providers, orders, approvals, reps, repNames, loading, error, ordersLoading, ordersError, ordersLoaded,
-    dashboardBilledThisMonth, dashboardSummaryLoading, approvalsLoading, repsLoading, revealed, revealCount,
-    refetch, byId, ordersFor, loadOrders, loadOrdersFor, isOrdersLoadingFor, isOrdersLoadedFor,
-    reveal, advanceStage, setStageFn, extend, assignRep, approve, reject,
+    providers, orders, approvals, reps, repNames, loading, ordersLoading, error, revealed, revealCount,
+    refetch, byId, ordersFor, reveal, advanceStage, setStageFn, extend, assignRep, approve, reject,
     deactivateAccount, reactivateAccount, busy,
   ])
 

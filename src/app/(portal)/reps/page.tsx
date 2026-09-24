@@ -8,7 +8,7 @@ import { initials, money, repStats } from '@/lib/portal-model'
 import { ChevronRight, LockIcon } from '@/components/ui/Icons'
 
 export default function RepsPage() {
-  const { providers, reps, loading, repsLoading, error, refetch } = usePortal()
+  const { providers, reps, loading, error, refetch } = usePortal()
   const { openDrawer } = useUI()
   const { goWithAlert } = useFilters()
 
@@ -65,7 +65,7 @@ export default function RepsPage() {
           <span className="c">{owners.length}</span>
         </div>
 
-        {loading || repsLoading ? (
+        {loading ? (
           <div className="empty">Loading the team…</div>
         ) : owners.length ? owners.map(r => {
           const x = repStats(providers, r.name, reps)

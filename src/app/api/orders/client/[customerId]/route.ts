@@ -13,11 +13,11 @@
 
 import { NextResponse } from 'next/server'
 import { getWordPressUserDetails } from '@/lib/auth'
+import { getOrdersForCustomers, getCallerCached, getMyClientIdsCached } from '@/lib/server/orders-store'
 
 const WC_URL = process.env.NEXT_PUBLIC_WC_URL
 const WC_KEY = process.env.WC_CONSUMER_KEY
 const WC_SECRET = process.env.WC_CONSUMER_SECRET
-const WP_URL = process.env.NEXT_PUBLIC_WP_URL
 
 export async function GET(
   request: Request,
@@ -38,7 +38,7 @@ export async function GET(
 
   let caller: { role: string }
   try {
-    caller = await getWordPressUserDetails(token)
+    caller = await getCallerCached(token, getWordPressUserDetails)
   } catch {
     return NextResponse.json({ message: 'Invalid or expired session.' }, { status: 401 })
   }
@@ -46,67 +46,46 @@ export async function GET(
   const { customerId } = await params
 
   if (caller.role === 'sales_rep') {
-    const myClientsRes = await fetch(`${WP_URL}/wp-json/cellgenic/v1/portal-clients`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    })
-    const myClientsPayload = myClientsRes.ok ? await myClientsRes.json() : { clients: [] }
-    const myClientIds = new Set((myClientsPayload.clients || []).map((c: any) => String(c.id)))
+    const myClientIds = await getMyClientIdsCached(token)
     if (!myClientIds.has(String(customerId))) {
       return NextResponse.json({ message: 'You do not have access to this client.' }, { status: 403 })
     }
   }
 
-  const credentials = Buffer.from(`${WC_KEY}:${WC_SECRET}`).toString('base64')
-
-  const res = await fetch(
-    `${WC_URL}/wp-json/wc/v3/orders?customer=${customerId}&per_page=50&orderby=date&order=desc`,
-    {
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/json',
-      },
-      cache: 'no-store',
-    }
-  )
-
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}))
+  // Latest 50 for this customer, newest first — same as the old direct
+  // WC call (per_page=50, orderby=date desc), served from the shared
+  // incremental store so it's instant and still includes new orders.
+  let orders: any[]
+  try {
+    orders = (await getOrdersForCustomers([String(customerId)], 1)).slice(0, 50)
+  } catch (err: any) {
     return NextResponse.json(
-      { message: error.message || `WooCommerce API error: ${res.status}` },
-      { status: res.status }
+      { message: err.message || 'WooCommerce API error' },
+      { status: 500 }
     )
   }
-
-  const orders = await res.json()
 
   const mapped = orders.map((o: any) => ({
     id: o.id,
     number: `#CG-${o.number}`,
-    customer_id: o.customer_id,
-    customer_name: `${o.billing?.first_name || ''} ${o.billing?.last_name || ''}`.trim() || o.billing?.company || 'Unknown',
     date: new Date(o.date_created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    raw_date: o.date_created,
     status: o.status,
-    total: parseFloat(o.total || '0'),
-    total_formatted: `$${parseFloat(o.total || '0').toLocaleString()}`,
-    products: (o.line_items || []).map((item: any) => `${item.name} × ${item.quantity}`).join(', '),
-    lineItems: (o.line_items || []).map((item: any) => ({
+    total: `$${parseFloat(o.total).toLocaleString()}`,
+    products: o.line_items.map((item: any) => `${item.name} × ${item.quantity}`).join(', '),
+    // Full breakdown — matches the expandable order-details view.
+    lineItems: o.line_items.map((item: any) => ({
       name: item.name,
       quantity: item.quantity,
-      unitPrice: item.quantity > 0 ? (parseFloat(item.total || '0') / item.quantity) : 0,
-      lineTotal: parseFloat(item.total || '0'),
+      unitPrice: item.quantity > 0 ? (parseFloat(item.total) / item.quantity) : 0,
+      lineTotal: parseFloat(item.total),
       sku: item.sku || null,
     })),
-    itemCount: (o.line_items || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0),
-    subtotal: (o.line_items || []).reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || item.total || '0'), 0),
+    subtotal: o.line_items.reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || item.total || '0'), 0),
     shippingMethod: (o.shipping_lines || [])[0]?.method_title || null,
-    shippingCost: (o.shipping_lines || []).reduce((sum: number, item: any) => sum + parseFloat(item.total || '0'), 0),
-    placed_by: (o.meta_data || []).find((m: any) => m.key === '_placed_by_rep')?.value || null,
-    payment_method: o.payment_method_title || o.payment_method || null,
-    billing_country: o.billing?.country || null,
+    shippingCost: (o.shipping_lines || []).reduce((sum: number, s: any) => sum + parseFloat(s.total || '0'), 0),
+    paymentMethod: o.payment_method_title || o.payment_method || null,
+    placedBy: (o.meta_data || []).find((m: any) => m.key === '_placed_by_rep')?.value || null,
   }))
-
 
   return NextResponse.json(mapped)
 }
